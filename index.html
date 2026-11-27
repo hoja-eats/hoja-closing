@@ -216,7 +216,7 @@
         <div><label class="lbl">次日早上點算金額 Cash Count</label><div class="money"><input type="number" step="0.01" inputmode="decimal" id="f-nextcount" placeholder="250.00"></div></div>
         <div><label class="lbl">確認人 Server Name</label><input type="text" id="f-nextserver" placeholder="姓名"></div>
       </div>
-      <div class="hint">沒填也可以先送出，隔天再用後台或重新開啟本頁補填（同日期再送出會覆蓋）。</div>
+      <div class="hint">沒填也可以先送出；隔天開啟本頁、選昨天的日期，當天紀錄會自動帶入，補填後再送出即可。</div>
     </div>
 
     <button class="btn" id="btn-submit" onclick="submitForm()">送出今日結帳 ✓</button>
@@ -327,6 +327,7 @@ var adminOK = false;
 var rangeDays = 7;
 var allRecords = [];
 var allOpenings = [];
+var entryLoadedFor = "";
 
 function loadCfg(){
   try{ var c = JSON.parse(storeGet(LS_CFG) || "{}"); return { endpoint: c.endpoint||"https://script.google.com/macros/s/AKfycbxO6lz_u4VRalfLfmGfIVCT5vTpPTKRIP2QYVaAsqe28KD_0vlWm0C0jO7fS-jrrGOCxQ/exec", pin: c.pin||"1234", store: c.store||"一店" }; }
@@ -533,9 +534,74 @@ function submitOpening(){
 function findOpening(date){
   var pools = [allOpenings, loadOpenings()];
   for (var p = 0; p < pools.length; p++){
-    for (var i = 0; i < pools[p].length; i++){ if (pools[p][i].date === date) return pools[p][i]; }
+    for (var i = 0; i < pools[p].length; i++){
+      var o = pools[p][i];
+      if (o.date === date && (!o.store || o.store === cfg.store)) return o;
+    }
   }
   return null;
+}
+function findRecord(date){
+  var pools = cfg.endpoint ? [allRecords, loadLocal()] : [loadLocal()];
+  for (var p = 0; p < pools.length; p++){
+    for (var i = 0; i < pools[p].length; i++){
+      var r = pools[p][i];
+      if (r.date === date && (!r.store || r.store === cfg.store)) return r;
+    }
+  }
+  return null;
+}
+function setVal(id, v){ $(id).value = (v === null || v === undefined) ? "" : v; }
+function fillEntryForm(rec){
+  setVal("f-server", rec.server || "");
+  DENOMS.forEach(function(d, i){ setVal("dn-"+i, rec.counts ? (rec.counts[d] || "") : ""); });
+  setVal("f-opendiff", rec.openDiff || "");
+  var cl = rec.claims || [];
+  for (var k = 0; k < 3; k++){
+    setVal("f-c"+(k+1), cl[k] ? (cl[k].amt || "") : "");
+    setVal("f-c"+(k+1)+"n", cl[k] ? (cl[k].note || "") : "");
+  }
+  setVal("f-cashsales", rec.cashSales || "");
+  setVal("f-cardtips", rec.cardTips || "");
+  setVal("f-netsales", rec.netSales || "");
+  setVal("f-takeout", rec.takeout || "");
+  setVal("f-cardsales", rec.cardSales || "");
+  setVal("f-nextcount", (rec.nextDayCount === null || rec.nextDayCount === undefined) ? "" : rec.nextDayCount);
+  setVal("f-nextserver", rec.nextDayServer || "");
+}
+function clearEntryForm(){
+  setVal("f-server", "");
+  DENOMS.forEach(function(d, i){ setVal("dn-"+i, ""); });
+  ["f-opendiff","f-c1","f-c2","f-c3","f-cashsales","f-cardtips","f-netsales","f-takeout","f-cardsales","f-nextcount"].forEach(function(id){ setVal(id, ""); });
+  ["f-c1n","f-c2n","f-c3n","f-nextserver"].forEach(function(id){ setVal(id, ""); });
+}
+function loadEntryForDate(){
+  var date = $("f-date").value;
+  var rec = date ? findRecord(date) : null;
+  if (rec){
+    fillEntryForm(rec);
+    entryLoadedFor = date;
+    $("sync-note").textContent = "📄 已帶入 " + date + " 已送出的紀錄，修改後再送出即可覆蓋。";
+  } else {
+    clearEntryForm();
+    entryLoadedFor = "";
+    updateSyncNote();
+  }
+  applyOpeningForDate();
+}
+function loadOpeningForDate(){
+  var date = $("o-date").value;
+  var rec = date ? findOpening(date) : null;
+  if (rec){
+    setVal("o-counter", rec.counter || "");
+    DENOMS.forEach(function(d, i){ setVal("od-"+i, rec.counts ? (rec.counts[d] || "") : ""); });
+    $("opening-note").textContent = "📄 已帶入 " + date + " 已送出的開店點算，修改後再送出即可覆蓋。";
+  } else {
+    setVal("o-counter", "");
+    DENOMS.forEach(function(d, i){ setVal("od-"+i, ""); });
+    updateSyncNote();
+  }
+  openCalc();
 }
 function applyOpeningForDate(){
   var date = $("f-date").value;
@@ -545,7 +611,9 @@ function applyOpeningForDate(){
     var t = "";
     try{ t = new Date(rec.submittedAt).toLocaleString(); }catch(e){}
     $("o-openinfo").textContent = "由 " + (rec.counter || "開店人員") + " 點算" + (t ? "（" + t + "）" : "") + "，差額已自動帶入下方欄位，可再手動調整。";
-    $("f-opendiff").value = (rec.diffVsFloat !== undefined && rec.diffVsFloat !== null && rec.diffVsFloat !== "") ? rec.diffVsFloat : round2((parseFloat(rec.total)||0) - FLOAT_AMT);
+    if (entryLoadedFor !== date){
+      $("f-opendiff").value = (rec.diffVsFloat !== undefined && rec.diffVsFloat !== null && rec.diffVsFloat !== "") ? rec.diffVsFloat : round2((parseFloat(rec.total)||0) - FLOAT_AMT);
+    }
   } else {
     $("o-opencash").textContent = "—";
     $("o-openinfo").textContent = "本日尚無開店點算紀錄，差額請手動填寫。";
@@ -556,11 +624,12 @@ function refreshOpenings(){
   if (cfg.endpoint){
     fetch(cfg.endpoint).then(function(r){ return r.json(); }).then(function(j){
       if (j && j.openings) allOpenings = j.openings;
-      applyOpeningForDate();
-    }).catch(function(){ allOpenings = loadOpenings(); applyOpeningForDate(); });
+      if (j && j.records) allRecords = j.records;
+      loadEntryForDate();
+    }).catch(function(){ allOpenings = loadOpenings(); loadEntryForDate(); });
   } else {
     allOpenings = loadOpenings();
-    applyOpeningForDate();
+    loadEntryForDate();
   }
 }
 
@@ -570,7 +639,8 @@ function showView(v){
     $("view-"+x).classList.toggle("on", x===v);
     $("tab-"+x).classList.toggle("on", x===v);
   });
-  if (v === "entry") refreshOpenings();
+  if (v === "entry"){ loadEntryForDate(); refreshOpenings(); }
+  if (v === "opening") loadOpeningForDate();
   if (v === "admin" && adminOK) loadAdmin();
   if (v === "setup"){ $("s-store").value = cfg.store || "一店"; $("s-endpoint").value = cfg.endpoint; $("s-pin").value = cfg.pin; refreshLocalCount(); }
   window.scrollTo(0,0);
@@ -634,10 +704,10 @@ function renderAdmin(){
   }).join("") : '<p class="muted">尚無資料。</p>';
   // daily table
   var openMap = {};
-  allOpenings.forEach(function(o){ openMap[o.date] = o; });
+  allOpenings.forEach(function(o){ openMap[(o.store||"") + "|" + o.date] = o; });
   var th = "<tr><th>店別</th><th>日期</th><th>開早現金</th><th>淨營業額</th><th>現金</th><th>刷卡</th><th>外帶</th><th>Cash Tips</th><th>Card Tips</th><th>Tips%</th><th>差額</th><th>袋中現金</th><th>結帳人</th></tr>";
   var tb = rows.slice().reverse().map(function(r){
-    var o = openMap[r.date];
+    var o = openMap[(r.store||"") + "|" + r.date];
     var oc = "—";
     if (o){ var ot = parseFloat(o.total)||0;
       oc = Math.abs(ot - FLOAT_AMT) > 0.001 ? '<span style="color:var(--bad);font-weight:700">'+money(ot)+"</span>" : money(ot); }
@@ -678,10 +748,10 @@ function exportWeekly(){
 function exportFull(){
   var rows = allRecords.slice().sort(function(a,b){ return a.date<b.date?-1:1; });
   var openMap = {};
-  allOpenings.forEach(function(o){ openMap[o.date] = o; });
+  allOpenings.forEach(function(o){ openMap[(o.store||"") + "|" + o.date] = o; });
   var cols = ["store","date","weekday","server","openCash","openCounter","tillTotal","openDiff","actualCash","envelope","cashSales","cashTips","cardTips","totalTips","netSales","takeout","dineIn","cardSales","tipsPct","nextDayCount","nextDayServer"];
   var csv = cols.join(",") + "\n" + rows.map(function(r){
-    var o = openMap[r.date] || {};
+    var o = openMap[(r.store||"") + "|" + r.date] || {};
     var merged = Object.assign({}, r, { openCash: (o.total!==undefined? o.total : ""), openCounter: (o.counter||"") });
     return cols.map(function(c){ var v = merged[c]; return v===null||v===undefined ? "" : v; }).join(",");
   }).join("\n");
@@ -698,6 +768,7 @@ function saveSetup(){
   cfg.pin = $("s-pin").value.trim() || "1234";
   saveCfg();
   updateStoreLabel();
+  refreshOpenings();
   var f = $("setup-flag"); f.className = "flag ok";
   f.textContent = cfg.endpoint ? "✓ 已儲存，送出時會同步到試算表。" : "✓ 已儲存（本機模式）。";
   updateSyncNote();
@@ -717,9 +788,10 @@ $("f-date").value = todayStr();
 ["f-opendiff","f-c1","f-c2","f-c3","f-cashsales","f-cardtips","f-netsales","f-takeout","f-cardsales"].forEach(function(id){
   $(id).addEventListener("input", recalc);
 });
-$("f-date").addEventListener("change", function(){ applyOpeningForDate(); });
+$("f-date").addEventListener("change", function(){ loadEntryForDate(); });
 buildOpenDenoms();
 $("o-date").value = todayStr();
+$("o-date").addEventListener("change", loadOpeningForDate);
 openCalc();
 recalc(); updateSyncNote(); refreshLocalCount(); refreshOpenings(); updateStoreLabel();
 </script>
