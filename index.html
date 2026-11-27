@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#9e3b2e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="一店結帳">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="apple-touch-icon.png">
+<title>HOJA 一店 · 每日結帳</title>
+<style>
+  :root{
+    --red:#9e3b2e; --red-dark:#7e2d22; --red-soft:#f7e8e4;
+    --ink:#221d1a; --muted:#7a6f68; --line:#e7ded8;
+    --bg:#faf6f3; --card:#ffffff; --ok:#1e7d4f; --warn:#b3541e; --bad:#c0272d;
+    --gold:#c8a24a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{font-family:"PingFang TC","PingFang SC","Microsoft JhengHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+       background:var(--bg); color:var(--ink); font-size:16px; line-height:1.5;}
+  .wrap{max-width:560px; margin:0 auto; padding:0 14px 90px;}
+  header.top{position:sticky; top:0; z-index:20; background:linear-gradient(135deg,var(--red),var(--red-dark));
+    color:#fff; margin:0 -14px; padding:16px 18px 12px; box-shadow:0 2px 10px rgba(0,0,0,.18);}
+  header.top h1{margin:0; font-size:20px; letter-spacing:.5px;}
+  header.top .sub{font-size:12.5px; opacity:.85; margin-top:2px;}
+  .tabs{display:flex; gap:8px; margin-top:12px;}
+  .tabs button{flex:1; border:1px solid rgba(255,255,255,.45); background:rgba(255,255,255,.12); color:#fff;
+    padding:8px 0; border-radius:999px; font-size:14.5px; font-weight:600; cursor:pointer;}
+  .tabs button.on{background:#fff; color:var(--red-dark);}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-top:14px;
+    box-shadow:0 1px 3px rgba(60,30,20,.05);}
+  .card h2{margin:0 0 4px; font-size:16.5px; color:var(--red-dark); display:flex; align-items:center; gap:8px;}
+  .card h2 .en{font-size:12px; color:var(--muted); font-weight:500;}
+  .hint{font-size:12.5px; color:var(--muted); margin:2px 0 8px;}
+  label.lbl{display:block; font-size:13.5px; color:var(--muted); margin:10px 0 4px;}
+  input[type="number"], input[type="text"], input[type="date"], input[type="password"], select{
+    width:100%; padding:11px 12px; border:1.5px solid var(--line); border-radius:10px; font-size:16.5px;
+    background:#fff; color:var(--ink); outline:none;}
+  input:focus, select:focus{border-color:var(--red);}
+  input[readonly]{background:#f4efeb;}
+  .denom{display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px dashed var(--line);}
+  .denom:last-child{border-bottom:none;}
+  .denom .face{width:64px; font-weight:700; font-size:16px;}
+  .denom .face small{color:var(--muted); font-weight:500;}
+  .denom input{flex:1; text-align:center; padding:9px 6px;}
+  .denom .amt{width:86px; text-align:right; font-variant-numeric:tabular-nums; color:var(--red-dark); font-weight:600;}
+  .rowline{display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px dashed var(--line);}
+  .rowline:last-child{border-bottom:none;}
+  .rowline .k{font-size:15px;}
+  .rowline .k small{color:var(--muted);}
+  .rowline .v{font-weight:700; font-variant-numeric:tabular-nums; font-size:16.5px;}
+  .rowline.total .v{color:var(--red-dark); font-size:19px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .money{position:relative;}
+  .money::before{content:"$"; position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:15px;}
+  .money input{padding-left:26px; text-align:right; font-variant-numeric:tabular-nums;}
+  .claimrow{display:grid; grid-template-columns:110px 1fr; gap:8px; margin-top:8px;}
+  .claimrow .money input{padding-left:22px;}
+  .flag{display:none; border-radius:10px; padding:9px 12px; font-size:14px; margin-top:10px;}
+  .flag.warn{display:block; background:#fdf0e4; color:var(--warn); border:1px solid #f0d3ae;}
+  .flag.bad{display:block; background:#fdeaea; color:var(--bad); border:1px solid #f2bcbc;}
+  .flag.ok{display:block; background:#e8f5ee; color:var(--ok); border:1px solid #bfe3cf;}
+  .btn{display:block; width:100%; border:none; border-radius:12px; padding:15px; font-size:17px; font-weight:700;
+    background:var(--red); color:#fff; cursor:pointer; margin-top:16px; box-shadow:0 3px 8px rgba(158,59,46,.35);}
+  .btn:active{background:var(--red-dark);}
+  .btn.ghost{background:#fff; color:var(--red-dark); border:1.5px solid var(--red); box-shadow:none; font-size:15px; padding:12px;}
+  .btn.small{width:auto; display:inline-block; padding:9px 16px; font-size:14.5px; margin-top:0;}
+  .toast{display:none; position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:50;
+    background:#221d1a; color:#fff; padding:12px 20px; border-radius:999px; font-size:15px; box-shadow:0 6px 20px rgba(0,0,0,.3);
+    max-width:88vw; text-align:center;}
+  .toast.show{display:block;}
+  .kpis{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;}
+  .kpi{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px;}
+  .kpi .k{font-size:12.5px; color:var(--muted);}
+  .kpi .v{font-size:21px; font-weight:800; color:var(--red-dark); font-variant-numeric:tabular-nums; margin-top:2px;}
+  .kpi .s{font-size:12px; color:var(--muted);}
+  table.dt{width:100%; border-collapse:collapse; font-size:13.5px; margin-top:8px;}
+  table.dt th, table.dt td{padding:7px 6px; border-bottom:1px solid var(--line); text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+  table.dt th{color:var(--muted); font-weight:600; font-size:12.5px;}
+  table.dt td:first-child, table.dt th:first-child{text-align:left;}
+  .scrollx{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  .bar-row{display:flex; align-items:center; gap:8px; margin-top:7px; font-size:13px;}
+  .bar-row .d{width:76px; color:var(--muted); flex:none;}
+  .bar-row .track{flex:1; background:#f1e9e4; border-radius:6px; height:18px; overflow:hidden;}
+  .bar-row .fill{height:100%; background:linear-gradient(90deg,var(--gold),var(--red)); border-radius:6px;}
+  .bar-row .n{width:86px; text-align:right; font-weight:600; flex:none; font-variant-numeric:tabular-nums;}
+  .seg{display:flex; gap:8px; margin-top:10px;}
+  .seg button{flex:1; padding:9px 0; border-radius:10px; border:1.5px solid var(--line); background:#fff; font-size:14.5px; font-weight:600; cursor:pointer; color:var(--ink);}
+  .seg button.on{border-color:var(--red); color:var(--red-dark); background:var(--red-soft);}
+  .view{display:none;} .view.on{display:block;}
+  .muted{color:var(--muted); font-size:13px;}
+  .pinwrap{max-width:240px; margin:8px auto 0;}
+  .del{color:var(--bad); font-size:12.5px; cursor:pointer; text-decoration:underline;}
+  footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:26px;}
+  /* ===== iPad / 寬螢幕版面（≥900px）：全寬＋雙欄，手機維持單欄 ===== */
+  .grid2>*{min-width:0;}
+  input[type="date"]{min-width:0;}
+  @media (min-width:900px){
+    .wrap{max-width:1120px; padding:0 22px 90px;}
+    header.top{margin:0 -22px; padding:18px 24px 14px;}
+    header.top h1{font-size:23px;}
+    .tabs button{font-size:16px; padding:10px 0;}
+    .card{padding:18px 20px;}
+    #view-opening.on, #view-entry.on{display:grid; grid-template-columns:1fr 1fr; column-gap:16px; align-items:start;}
+    #view-opening .btn, #view-entry .btn{grid-column:1 / -1;}
+    #opening-note, #sync-note{grid-column:1 / -1;}
+    /* 收店報表：左欄＝日期＋現金點算；右欄＝對帳＋POS＋次日確認 */
+    #view-entry .card:nth-of-type(1){grid-column:1; grid-row:1;}
+    #view-entry .card:nth-of-type(2){grid-column:1; grid-row:2;}
+    #view-entry .card:nth-of-type(3){grid-column:2; grid-row:1;}
+    #view-entry .card:nth-of-type(4){grid-column:2; grid-row:2;}
+    #view-entry .card:nth-of-type(5){grid-column:2; grid-row:3;}
+    .denom .face{width:76px; font-size:17px;}
+    .denom .amt{width:104px; font-size:17px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>HOJA <span id="store-label">一店</span> · 每日結帳</h1>
+    <div class="sub">Daily Closing — 收銀結帳、現金點算、小費與業績回報</div>
+    <div class="tabs">
+      <button id="tab-opening" onclick="showView('opening')">🌅 開店點算</button>
+      <button id="tab-entry" class="on" onclick="showView('entry')">📝 收店報表</button>
+      <button id="tab-admin" onclick="showView('admin')">📊 後台分析</button>
+      <button id="tab-setup" onclick="showView('setup')">⚙️ 設定</button>
+    </div>
+  </header>
+
+  <!-- ============ 開店點算 ============ -->
+  <section id="view-opening" class="view">
+    <div class="card">
+      <h2>🌅 開店現金點算表 <span class="en">Opening Cash Count</span></h2>
+      <div class="hint">開店人員早上點算收銀機（Cashier）現金，輸入每種面額的張數／個數。送出後，金額會自動帶入「收店報表」的開早現金金額。</div>
+      <div class="grid2">
+        <div><label class="lbl">日期 Date</label><input type="date" id="o-date"></div>
+        <div><label class="lbl">點算人 Counter</label><input type="text" id="o-counter" placeholder="姓名"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>💵 現金點算 <span class="en">Cash Count</span></h2>
+      <div id="odenoms"></div>
+      <div class="rowline total"><span class="k">開店現金總額 <small>Opening Cash</small></span><span class="v" id="o-opentotal">$0.00</span></div>
+      <div class="rowline"><span class="k">應有留底 <small>Float</small></span><span class="v">$250.00</span></div>
+      <div class="rowline"><span class="k">差額 <small>多錢 (+)／少錢 (−)</small></span><span class="v" id="o-opendiff">$0.00</span></div>
+    </div>
+    <button class="btn" id="btn-opening" onclick="submitOpening()">送出開店點算 ✓</button>
+    <div class="hint" style="text-align:center" id="opening-note"></div>
+  </section>
+
+  <!-- ============ 收店報表 ============ -->
+  <section id="view-entry" class="view on">
+    <div class="card">
+      <h2>📅 日期與結帳人</h2>
+      <div class="grid2">
+        <div><label class="lbl">日期 Date</label><input type="date" id="f-date"></div>
+        <div><label class="lbl">結帳人 Server Name</label><input type="text" id="f-server" placeholder="例：Carman"></div>
+      </div>
+      <div class="hint" id="f-weekday"></div>
+    </div>
+
+    <div class="card">
+      <h2>💵 現金點算 <span class="en">Cash Count</span></h2>
+      <div class="hint">輸入每種面額的張數／個數，金額自動計算。</div>
+      <div id="denoms"></div>
+      <div class="rowline total"><span class="k">Till Total <small>收銀機現金總額</small></span><span class="v" id="o-till">$0.00</span></div>
+    </div>
+
+    <div class="card">
+      <h2>🧾 現金收支與留底對帳</h2>
+      <div class="rowline"><span class="k">開早現金金額 <small>Opening Cash</small></span><span class="v" id="o-opencash">—</span></div>
+      <div class="hint" id="o-openinfo">由「開店點算」分頁帶入</div>
+      <label class="lbl">開早金額差額（少錢填負數、多錢填正數；有開店點算時自動帶入）</label>
+      <div class="money"><input type="number" step="0.01" inputmode="decimal" id="f-opendiff" placeholder="0.00"></div>
+      <label class="lbl">請款 (+) ／現金入帳 (−)：從收銀機拿現金去買東西填正數，現金存入填負數</label>
+      <div class="claimrow"><div class="money"><input type="number" step="0.01" inputmode="decimal" id="f-c1" placeholder="0.00"></div><input type="text" id="f-c1n" placeholder="備註 1（例：Chefco (Bill)）"></div>
+      <div class="claimrow"><div class="money"><input type="number" step="0.01" inputmode="decimal" id="f-c2" placeholder="0.00"></div><input type="text" id="f-c2n" placeholder="備註 2"></div>
+      <div class="claimrow"><div class="money"><input type="number" step="0.01" inputmode="decimal" id="f-c3" placeholder="0.00"></div><input type="text" id="f-c3n" placeholder="備註 3"></div>
+      <div style="margin-top:10px">
+        <div class="rowline"><span class="k">實際總現金 <small>Actual Cash</small></span><span class="v" id="o-actual">$0.00</span></div>
+        <div class="rowline"><span class="k">固定留底零用金 <small>Float</small></span><span class="v">$250.00</span></div>
+        <div class="rowline total"><span class="k">Envelope Cash <small>袋中現金（存入銀行）</small></span><span class="v" id="o-envelope">$0.00</span></div>
+        <div class="rowline"><span class="k">Closing Till <small>留底確認</small></span><span class="v" id="o-closing">$250.00</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📟 POS 數據與小費點算</h2>
+      <label class="lbl">Report Cash Sales（POS 報表現金營業額）</label>
+      <div class="money"><input type="number" step="0.01" inputmode="decimal" id="f-cashsales" placeholder="0.00"></div>
+      <label class="lbl">Card Tips（刷卡小費，POS 報表）</label>
+      <div class="money"><input type="number" step="0.01" inputmode="decimal" id="f-cardtips" placeholder="0.00"></div>
+      <label class="lbl">Today Net Sales（今日淨營業額，POS 報表）</label>
+      <div class="money"><input type="number" step="0.01" inputmode="decimal" id="f-netsales" placeholder="0.00"></div>
+      <label class="lbl">Takeout Sales (Other)（外帶／外送平台營業額）</label>
+      <div class="money"><input type="number" step="0.01" inputmode="decimal" id="f-takeout" placeholder="0.00"></div>
+      <label class="lbl">Credit/Debit（刷卡實收，POS 報表）</label>
+      <div class="money"><input type="number" step="0.01" inputmode="decimal" id="f-cardsales" placeholder="0.00"></div>
+      <div style="margin-top:10px">
+        <div class="rowline"><span class="k">Cash Tips <small>現金小費（自動）</small></span><span class="v" id="o-cashtips">$0.00</span></div>
+        <div class="rowline total"><span class="k">Total Tips <small>小費合計</small></span><span class="v" id="o-totalips">$0.00</span></div>
+        <div class="rowline"><span class="k">Dine In Net Sales <small>內用淨營業額（自動）</small></span><span class="v" id="o-dinein">$0.00</span></div>
+        <div class="rowline"><span class="k">Tips % <small>小費佔內用營業額</small></span><span class="v" id="o-tipspct">0.0%</span></div>
+      </div>
+      <div class="flag" id="flag-box"></div>
+    </div>
+
+    <div class="card">
+      <h2>🌅 次日確認 <span class="en">Next Day Confirmation（隔天早上填）</span></h2>
+      <div class="grid2">
+        <div><label class="lbl">次日早上點算金額 Cash Count</label><div class="money"><input type="number" step="0.01" inputmode="decimal" id="f-nextcount" placeholder="250.00"></div></div>
+        <div><label class="lbl">確認人 Server Name</label><input type="text" id="f-nextserver" placeholder="姓名"></div>
+      </div>
+      <div class="hint">沒填也可以先送出，隔天再用後台或重新開啟本頁補填（同日期再送出會覆蓋）。</div>
+    </div>
+
+    <button class="btn" id="btn-submit" onclick="submitForm()">送出今日結帳 ✓</button>
+    <div class="hint" style="text-align:center" id="sync-note"></div>
+  </section>
+
+  <!-- ============ 後台分析 ============ -->
+  <section id="view-admin" class="view">
+    <div class="card" id="pin-card">
+      <h2>🔐 後台登入</h2>
+      <div class="hint">請輸入管理密碼（預設 1234，可在「設定」更改）。</div>
+      <div class="pinwrap"><input type="password" id="pin-input" inputmode="numeric" placeholder="••••" style="text-align:center; letter-spacing:6px;"></div>
+      <button class="btn" onclick="tryPin()">進入後台</button>
+      <div class="flag" id="pin-flag"></div>
+    </div>
+
+    <div id="admin-main" style="display:none">
+      <div class="seg">
+        <button id="rng-7" class="on" onclick="setRange(7)">近 7 天</button>
+        <button id="rng-28" onclick="setRange(28)">近 4 週</button>
+        <button id="rng-0" onclick="setRange(0)">全部</button>
+      </div>
+      <div class="kpis" id="kpis"></div>
+
+      <div class="card">
+        <h2>📈 每日淨營業額 <span class="en">Net Sales</span></h2>
+        <div id="chart-sales"></div>
+      </div>
+
+      <div class="card">
+        <h2>📋 每日明細</h2>
+        <div class="scrollx"><table class="dt" id="tbl-days"></table></div>
+      </div>
+
+      <div class="card">
+        <h2>🗓 週結算（週日–週六）<span class="en">Weekly</span></h2>
+        <div class="scrollx"><table class="dt" id="tbl-weeks"></table></div>
+        <div class="hint">週 Card Tips 合計可對照銀行每週提領的 credit card tips 金額。</div>
+      </div>
+
+      <div class="card">
+        <h2>⬇️ 匯出</h2>
+        <button class="btn ghost" onclick="exportWeekly()">匯出週表 CSV（日期／Cash／Credit／Other）</button>
+        <button class="btn ghost" onclick="exportFull()">匯出完整 CSV（全部欄位）</button>
+        <div class="hint" id="admin-note"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 設定 ============ -->
+  <section id="view-setup" class="view">
+    <div class="card">
+      <h2>☁️ 資料同步（Google 試算表後台）</h2>
+      <div class="hint">三家店共用同一本中央資料庫，資料以店別區分。貼上 Apps Script 網頁應用程式網址後，員工送出的資料會即時寫入 Google 試算表，後台也會讀取雲端全部資料。未設定時，資料只存在這支手機／這個瀏覽器（本機模式）。</div>
+      <label class="lbl">本店店別（每台平板設定一次）</label>
+      <select id="s-store">
+        <option value="一店">一店（FMP · Markham）</option>
+        <option value="二店">二店（Lamb · Richmond Hill）</option>
+        <option value="三店">三店（DT · Toronto）</option>
+      </select>
+      <label class="lbl">Apps Script Web App 網址</label>
+      <input type="text" id="s-endpoint" placeholder="https://script.google.com/macros/s/…/exec">
+      <label class="lbl">管理密碼（後台登入用）</label>
+      <input type="text" id="s-pin" placeholder="1234">
+      <button class="btn" onclick="saveSetup()">儲存設定</button>
+      <div class="flag" id="setup-flag"></div>
+    </div>
+    <div class="card">
+      <h2>ℹ️ 說明</h2>
+      <p class="muted" style="margin:4px 0">計算方式與現行各店業績結帳表完全相同：Cash Tips ＝ 實際總現金 − 留底 $250 − 現金營業額；Envelope Cash ＝ 收銀現金 − $250；Tips % ＝ Total Tips ÷ 內用淨營業額。同一店同一天重複送出會以最新一筆為準。</p>
+      <p class="muted" style="margin:4px 0">「開店點算」分頁：開店人員早上點算的現金總額會自動帶入同日「收店報表」的開早現金金額，差額（總額 − $250）自動填入開早金額差額欄，收店人員可再手動調整。</p>
+      <p class="muted" style="margin:4px 0" id="local-count"></p>
+    </div>
+  </section>
+
+  <footer>HOJA · 每日結帳工具（三店共用 · 中央資料庫版）</footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+var FLOAT_AMT = 250;
+var DENOMS = [100, 50, 20, 10, 5, 2, 1, 0.25, 0.10, 0.05];
+var LS_KEY = "hoja_s1_closing_v1";
+var LS_OPEN = "hoja_s1_opening_v1";
+var LS_CFG = "hoja_s1_cfg_v1";
+/* 安全儲存層：有些預覽環境（例如 App 內嵌預覽）會擋 localStorage，
+   被擋時自動改用記憶體暫存，至少當次開啟期間資料不遺失、流程可走完。 */
+var _storageOK = null;
+var _memStore = {};
+function storageOK(){
+  if (_storageOK === null){
+    try{ localStorage.setItem("__hoja_t", "1"); localStorage.removeItem("__hoja_t"); _storageOK = true; }
+    catch(e){ _storageOK = false; }
+  }
+  return _storageOK;
+}
+function storeGet(k){
+  if (storageOK()){ try{ return localStorage.getItem(k); }catch(e){} }
+  return (k in _memStore) ? _memStore[k] : null;
+}
+function storeSet(k, v){
+  if (storageOK()){ try{ localStorage.setItem(k, v); return; }catch(e){} }
+  _memStore[k] = v;
+}
+var cfg = loadCfg();
+var adminOK = false;
+var rangeDays = 7;
+var allRecords = [];
+var allOpenings = [];
+
+function loadCfg(){
+  try{ var c = JSON.parse(storeGet(LS_CFG) || "{}"); return { endpoint: c.endpoint||"https://script.google.com/macros/s/AKfycbxO6lz_u4VRalfLfmGfIVCT5vTpPTKRIP2QYVaAsqe28KD_0vlWm0C0jO7fS-jrrGOCxQ/exec", pin: c.pin||"1234", store: c.store||"一店" }; }
+  catch(e){ return { endpoint:"https://script.google.com/macros/s/AKfycbxO6lz_u4VRalfLfmGfIVCT5vTpPTKRIP2QYVaAsqe28KD_0vlWm0C0jO7fS-jrrGOCxQ/exec", pin:"1234", store:"一店" }; }
+}
+function saveCfg(){ storeSet(LS_CFG, JSON.stringify(cfg)); }
+function loadLocal(){
+  try{ return JSON.parse(storeGet(LS_KEY) || "[]"); }catch(e){ return []; }
+}
+function saveLocal(rows){ storeSet(LS_KEY, JSON.stringify(rows)); }
+function $(id){ return document.getElementById(id); }
+function num(id){ var v = parseFloat($(id).value); return isNaN(v) ? 0 : v; }
+function money(v){ var s = (v<0?"-$":"$") + Math.abs(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","); return s; }
+function round2(v){ return Math.round(v*100)/100; }
+function toast(msg, ms){
+  var t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(function(){ t.classList.remove("show"); }, ms||2600);
+}
+function todayStr(){
+  var d = new Date(); var m = ("0"+(d.getMonth()+1)).slice(-2); var dd = ("0"+d.getDate()).slice(-2);
+  return d.getFullYear()+"-"+m+"-"+dd;
+}
+function weekdayOf(dateStr){
+  var d = new Date(dateStr+"T12:00:00"); return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
+}
+
+/* ---------- 填報 ---------- */
+function buildDenoms(){
+  var html = "";
+  DENOMS.forEach(function(d, i){
+    var label = d >= 1 ? "$"+d : (d*100)+"¢";
+    html += '<div class="denom"><span class="face">'+label+'</span>' +
+      '<input type="number" min="0" step="1" inputmode="numeric" id="dn-'+i+'" placeholder="0" oninput="recalc()">' +
+      '<span class="amt" id="da-'+i+'">$0.00</span></div>';
+  });
+  $("denoms").innerHTML = html;
+}
+function countsObj(){
+  var o = {}; DENOMS.forEach(function(d, i){ o[d] = num("dn-"+i); }); return o;
+}
+function calc(){
+  var counts = countsObj(); var till = 0;
+  DENOMS.forEach(function(d, i){ till += d * counts[d]; $("da-"+i).textContent = money(d*counts[d]); });
+  till = round2(till);
+  var actual = round2(till + num("f-opendiff") + num("f-c1") + num("f-c2") + num("f-c3"));
+  var envelope = round2(till - FLOAT_AMT);
+  var closing = round2(till - envelope);
+  var cashTips = round2(actual - FLOAT_AMT - num("f-cashsales"));
+  var totalTips = round2(cashTips + num("f-cardtips"));
+  var dineIn = round2(num("f-netsales") - num("f-takeout"));
+  var tipsPct = dineIn > 0 ? totalTips / dineIn : 0;
+  return { counts:counts, till:till, actual:actual, envelope:envelope, closing:closing,
+           cashTips:cashTips, totalTips:totalTips, dineIn:dineIn, tipsPct:tipsPct };
+}
+function recalc(){
+  var c = calc();
+  $("o-till").textContent = money(c.till);
+  $("o-actual").textContent = money(c.actual);
+  $("o-envelope").textContent = money(c.envelope);
+  $("o-closing").textContent = money(c.closing);
+  $("o-cashtips").textContent = money(c.cashTips);
+  $("o-totalips").textContent = money(c.totalTips);
+  $("o-dinein").textContent = money(c.dineIn);
+  $("o-tipspct").textContent = (c.tipsPct*100).toFixed(1)+"%";
+  var f = $("flag-box"); var cls = "", msg = "";
+  if (c.cashTips < 0){ cls = "bad"; msg = "⚠️ Cash Tips 是負數：現金比報表現金營業額還少，請檢查點算、請款或差額是否填錯。"; }
+  else if (num("f-opendiff") !== 0){ cls = "warn"; msg = "ℹ️ 今天有開早金額差額 "+money(num("f-opendiff"))+"，送出前請再確認一次點算。"; }
+  else if (c.till > 0){ cls = "ok"; msg = "✓ 金額看起來沒問題。"; }
+  f.className = "flag" + (cls ? " "+cls : ""); f.textContent = msg;
+  var ds = $("f-date").value;
+  $("f-weekday").textContent = ds ? ("星期：" + weekdayOf(ds) + "（小費週期以週日–週六計算）") : "";
+}
+function collectRecord(){
+  var c = calc();
+  var rec = {
+    store: cfg.store || "一店",
+    date: $("f-date").value,
+    weekday: weekdayOf($("f-date").value),
+    server: $("f-server").value.trim(),
+    counts: c.counts,
+    tillTotal: c.till,
+    openDiff: num("f-opendiff"),
+    claims: [ {amt:num("f-c1"), note:$("f-c1n").value.trim()},
+              {amt:num("f-c2"), note:$("f-c2n").value.trim()},
+              {amt:num("f-c3"), note:$("f-c3n").value.trim()} ],
+    actualCash: c.actual,
+    floatAmt: FLOAT_AMT,
+    envelope: c.envelope,
+    closingTill: c.closing,
+    cashSales: num("f-cashsales"),
+    cashTips: c.cashTips,
+    cardTips: num("f-cardtips"),
+    totalTips: c.totalTips,
+    netSales: num("f-netsales"),
+    takeout: num("f-takeout"),
+    dineIn: c.dineIn,
+    cardSales: num("f-cardsales"),
+    tipsPct: Math.round(c.tipsPct*10000)/10000,
+    nextDayCount: $("f-nextcount").value === "" ? null : num("f-nextcount"),
+    nextDayServer: $("f-nextserver").value.trim(),
+    submittedAt: new Date().toISOString()
+  };
+  return rec;
+}
+function upsertLocal(rec){
+  var rows = loadLocal();
+  var idx = -1;
+  rows.forEach(function(r, i){ if (r.date === rec.date) idx = i; });
+  if (idx >= 0) rows[idx] = rec; else rows.push(rec);
+  rows.sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+  saveLocal(rows);
+}
+function submitForm(){
+  var rec = collectRecord();
+  if (!rec.date){ toast("請先選日期"); return; }
+  if (rec.tillTotal <= 0 && rec.netSales <= 0){ toast("還沒有輸入任何金額喔"); return; }
+  upsertLocal(rec);
+  var snote = $("sync-note");
+  snote.textContent = "✓ 已送出 " + rec.date + " 的收店報表（袋中現金 " + money(rec.envelope) + "、Total Tips " + money(rec.totalTips) + "）。";
+  snote.style.color = "var(--ok)"; snote.style.fontWeight = "700";
+  if (cfg.endpoint){
+    var btn = $("btn-submit"); btn.textContent = "送出中…"; btn.disabled = true;
+    fetch(cfg.endpoint, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" }, body: JSON.stringify(rec) })
+      .then(function(r){ return r.text(); })
+      .then(function(){ btn.textContent = "送出今日結帳 ✓"; btn.disabled = false;
+        toast("✓ 已送出並同步到試算表（"+rec.date+"）"); })
+      .catch(function(){ btn.textContent = "送出今日結帳 ✓"; btn.disabled = false;
+        toast("已存在本機；雲端同步失敗，請檢查網路或設定", 3600); });
+  } else {
+    toast("✓ 已儲存（本機模式，"+rec.date+"）");
+  }
+  refreshLocalCount();
+}
+
+/* ---------- 開店點算 ---------- */
+function loadOpenings(){
+  try{ return JSON.parse(storeGet(LS_OPEN) || "[]"); }catch(e){ return []; }
+}
+function saveOpenings(rows){ storeSet(LS_OPEN, JSON.stringify(rows)); }
+function upsertOpening(rec){
+  var rows = loadOpenings();
+  var idx = -1;
+  rows.forEach(function(r, i){ if (r.date === rec.date) idx = i; });
+  if (idx >= 0) rows[idx] = rec; else rows.push(rec);
+  rows.sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+  saveOpenings(rows);
+}
+function buildOpenDenoms(){
+  var html = "";
+  DENOMS.forEach(function(d, i){
+    var label = d >= 1 ? "$"+d : (d*100)+"¢";
+    html += '<div class="denom"><span class="face">'+label+'</span>' +
+      '<input type="number" min="0" step="1" inputmode="numeric" id="od-'+i+'" placeholder="0" oninput="openCalc()">' +
+      '<span class="amt" id="oa-'+i+'">$0.00</span></div>';
+  });
+  $("odenoms").innerHTML = html;
+}
+function openCounts(){
+  var o = {}; DENOMS.forEach(function(d, i){ o[d] = num("od-"+i); }); return o;
+}
+function openCalc(){
+  var t = 0;
+  DENOMS.forEach(function(d, i){ var c = num("od-"+i); t += d * c; $("oa-"+i).textContent = money(d*c); });
+  t = round2(t);
+  $("o-opentotal").textContent = money(t);
+  var diff = round2(t - FLOAT_AMT);
+  var el = $("o-opendiff");
+  el.textContent = (diff > 0 ? "+" : "") + money(diff);
+  el.style.color = diff === 0 ? "var(--ok)" : "var(--bad)";
+  return t;
+}
+function submitOpening(){
+  var total = openCalc();
+  var rec = {
+    type: "opening",
+    store: cfg.store || "一店",
+    date: $("o-date").value,
+    weekday: weekdayOf($("o-date").value),
+    counter: $("o-counter").value.trim(),
+    counts: openCounts(),
+    total: total,
+    diffVsFloat: round2(total - FLOAT_AMT),
+    submittedAt: new Date().toISOString()
+  };
+  if (!rec.date){ toast("請先選日期"); return; }
+  if (total <= 0){ toast("還沒有輸入任何張數喔"); return; }
+  upsertOpening(rec);
+  allOpenings = loadOpenings();
+  var onote = $("opening-note");
+  onote.textContent = "✓ 已送出：" + rec.date + " 開店現金 " + money(rec.total) + (rec.counter ? "（點算人 " + rec.counter + "）" : "") + " — 到「收店報表」選同一天就會自動帶入。";
+  onote.style.color = "var(--ok)"; onote.style.fontWeight = "700";
+  if (cfg.endpoint){
+    var btn = $("btn-opening"); btn.textContent = "送出中…"; btn.disabled = true;
+    fetch(cfg.endpoint, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" }, body: JSON.stringify(rec) })
+      .then(function(){ btn.textContent = "送出開店點算 ✓"; btn.disabled = false;
+        toast("✓ 開店點算已送出並同步（"+rec.date+"）"); applyOpeningForDate(); })
+      .catch(function(){ btn.textContent = "送出開店點算 ✓"; btn.disabled = false;
+        toast("已存在本機；雲端同步失敗，請檢查網路或設定", 3600); applyOpeningForDate(); });
+  } else {
+    toast("✓ 開店點算已儲存（本機模式，"+rec.date+"）");
+    applyOpeningForDate();
+  }
+}
+function findOpening(date){
+  var pools = [allOpenings, loadOpenings()];
+  for (var p = 0; p < pools.length; p++){
+    for (var i = 0; i < pools[p].length; i++){ if (pools[p][i].date === date) return pools[p][i]; }
+  }
+  return null;
+}
+function applyOpeningForDate(){
+  var date = $("f-date").value;
+  var rec = date ? findOpening(date) : null;
+  if (rec){
+    $("o-opencash").textContent = money(parseFloat(rec.total)||0);
+    var t = "";
+    try{ t = new Date(rec.submittedAt).toLocaleString(); }catch(e){}
+    $("o-openinfo").textContent = "由 " + (rec.counter || "開店人員") + " 點算" + (t ? "（" + t + "）" : "") + "，差額已自動帶入下方欄位，可再手動調整。";
+    $("f-opendiff").value = (rec.diffVsFloat !== undefined && rec.diffVsFloat !== null && rec.diffVsFloat !== "") ? rec.diffVsFloat : round2((parseFloat(rec.total)||0) - FLOAT_AMT);
+  } else {
+    $("o-opencash").textContent = "—";
+    $("o-openinfo").textContent = "本日尚無開店點算紀錄，差額請手動填寫。";
+  }
+  recalc();
+}
+function refreshOpenings(){
+  if (cfg.endpoint){
+    fetch(cfg.endpoint).then(function(r){ return r.json(); }).then(function(j){
+      if (j && j.openings) allOpenings = j.openings;
+      applyOpeningForDate();
+    }).catch(function(){ allOpenings = loadOpenings(); applyOpeningForDate(); });
+  } else {
+    allOpenings = loadOpenings();
+    applyOpeningForDate();
+  }
+}
+
+/* ---------- 後台 ---------- */
+function showView(v){
+  ["opening","entry","admin","setup"].forEach(function(x){
+    $("view-"+x).classList.toggle("on", x===v);
+    $("tab-"+x).classList.toggle("on", x===v);
+  });
+  if (v === "entry") refreshOpenings();
+  if (v === "admin" && adminOK) loadAdmin();
+  if (v === "setup"){ $("s-store").value = cfg.store || "一店"; $("s-endpoint").value = cfg.endpoint; $("s-pin").value = cfg.pin; refreshLocalCount(); }
+  window.scrollTo(0,0);
+}
+function tryPin(){
+  if ($("pin-input").value === cfg.pin){
+    adminOK = true; $("pin-card").style.display = "none"; $("admin-main").style.display = "block";
+    loadAdmin();
+  } else {
+    var f = $("pin-flag"); f.className = "flag bad"; f.textContent = "密碼不對，請再試一次。";
+  }
+}
+function setRange(d){
+  rangeDays = d;
+  [7,28,0].forEach(function(x){ $("rng-"+x).classList.toggle("on", x===d); });
+  renderAdmin();
+}
+function loadAdmin(){
+  $("admin-note").textContent = "載入中…";
+  if (cfg.endpoint){
+    fetch(cfg.endpoint).then(function(r){ return r.json(); }).then(function(j){
+      allRecords = (j && j.records) ? j.records : [];
+      allOpenings = (j && j.openings) ? j.openings : [];
+      renderAdmin();
+      $("admin-note").textContent = "資料來源：Google 試算表（共 "+allRecords.length+" 天）";
+    }).catch(function(){
+      allRecords = loadLocal(); allOpenings = loadOpenings(); renderAdmin();
+      $("admin-note").textContent = "雲端讀取失敗，先顯示本機資料（共 "+allRecords.length+" 天）";
+    });
+  } else {
+    allRecords = loadLocal(); allOpenings = loadOpenings(); renderAdmin();
+    $("admin-note").textContent = "本機模式：只顯示這台裝置上的資料（共 "+allRecords.length+" 天）。接上試算表同步後，後台會彙總所有員工的資料。";
+  }
+}
+function inRange(rec){
+  if (rangeDays === 0) return true;
+  var cut = new Date(); cut.setDate(cut.getDate() - (rangeDays - 1));
+  return rec.date >= isoOf(cut);
+}
+function isoOf(d){ var m=("0"+(d.getMonth()+1)).slice(-2); var dd=("0"+d.getDate()).slice(-2); return d.getFullYear()+"-"+m+"-"+dd; }
+function sum(rows, k){ return round2(rows.reduce(function(a,r){ return a + (parseFloat(r[k])||0); }, 0)); }
+function renderAdmin(){
+  var rows = allRecords.filter(inRange).slice().sort(function(a,b){ return a.date<b.date?-1:1; });
+  var net = sum(rows,"netSales"), tips = sum(rows,"totalTips"), cash = sum(rows,"cashSales"),
+      card = sum(rows,"cardSales"), cardTips = sum(rows,"cardTips"), env = sum(rows,"envelope");
+  var avgPct = rows.length ? rows.reduce(function(a,r){ return a+(parseFloat(r.tipsPct)||0); },0)/rows.length : 0;
+  var diffDays = rows.filter(function(r){ return (parseFloat(r.openDiff)||0) !== 0; }).length;
+  $("kpis").innerHTML =
+    kpi("淨營業額 Net Sales", money(net), rows.length+" 天") +
+    kpi("小費合計 Total Tips", money(tips), "平均 Tips % " + (avgPct*100).toFixed(1)+"%") +
+    kpi("現金營業額 Cash", money(cash), "刷卡實收 " + money(card)) +
+    kpi("Card Tips（週提領對照）", money(cardTips), "袋中現金合計 " + money(env)) +
+    kpi("有開早差額的天數", diffDays+" 天", diffDays? "請留意明細" : "現金都對得上 ✓");
+  // chart
+  var max = Math.max.apply(null, rows.map(function(r){ return parseFloat(r.netSales)||0; }).concat([1]));
+  $("chart-sales").innerHTML = rows.length ? rows.map(function(r){
+    var w = Math.max(2, Math.round((parseFloat(r.netSales)||0)/max*100));
+    return '<div class="bar-row"><span class="d">'+r.date.slice(5)+" "+(r.weekday||"")+'</span>' +
+      '<span class="track"><span class="fill" style="width:'+w+'%"></span></span>' +
+      '<span class="n">'+money(parseFloat(r.netSales)||0)+'</span></div>';
+  }).join("") : '<p class="muted">尚無資料。</p>';
+  // daily table
+  var openMap = {};
+  allOpenings.forEach(function(o){ openMap[o.date] = o; });
+  var th = "<tr><th>店別</th><th>日期</th><th>開早現金</th><th>淨營業額</th><th>現金</th><th>刷卡</th><th>外帶</th><th>Cash Tips</th><th>Card Tips</th><th>Tips%</th><th>差額</th><th>袋中現金</th><th>結帳人</th></tr>";
+  var tb = rows.slice().reverse().map(function(r){
+    var o = openMap[r.date];
+    var oc = "—";
+    if (o){ var ot = parseFloat(o.total)||0;
+      oc = Math.abs(ot - FLOAT_AMT) > 0.001 ? '<span style="color:var(--bad);font-weight:700">'+money(ot)+"</span>" : money(ot); }
+    return "<tr><td>"+(r.store||"")+"</td><td>"+r.date.slice(5)+" "+(r.weekday||"")+"</td><td>"+oc+"</td><td>"+money(r.netSales)+"</td><td>"+money(r.cashSales)+"</td><td>"+money(r.cardSales)+"</td><td>"+money(r.takeout)+"</td><td>"+money(r.cashTips)+"</td><td>"+money(r.cardTips)+"</td><td>"+((parseFloat(r.tipsPct)||0)*100).toFixed(1)+"%</td><td>"+((parseFloat(r.openDiff)||0)!==0 ? money(r.openDiff) : "—")+"</td><td>"+money(r.envelope)+"</td><td>"+(r.server||"")+"</td></tr>";
+  }).join("");
+  $("tbl-days").innerHTML = th + tb;
+  // weekly table (Sun-Sat)
+  var weeks = {};
+  allRecords.forEach(function(r){
+    var d = new Date(r.date+"T12:00:00"); d.setDate(d.getDate() - d.getDay());
+    var key = (r.store||"") + "|" + isoOf(d);
+    if (!weeks[key]) weeks[key] = { store: r.store||"", week: isoOf(d), rows: [] };
+    weeks[key].rows.push(r);
+  });
+  var wk = Object.keys(weeks).sort().reverse();
+  var wth = "<tr><th>店別</th><th>週（日起）</th><th>天數</th><th>淨營業額</th><th>現金</th><th>刷卡</th><th>外帶</th><th>Total Tips</th><th>Card Tips</th></tr>";
+  var wtb = wk.map(function(k){
+    var g = weeks[k]; var rs = g.rows;
+    return "<tr><td>"+g.store+"</td><td>"+g.week+"</td><td>"+rs.length+"</td><td>"+money(sum(rs,"netSales"))+"</td><td>"+money(sum(rs,"cashSales"))+"</td><td>"+money(sum(rs,"cardSales"))+"</td><td>"+money(sum(rs,"takeout"))+"</td><td>"+money(sum(rs,"totalTips"))+"</td><td>"+money(sum(rs,"cardTips"))+"</td></tr>";
+  }).join("");
+  $("tbl-weeks").innerHTML = wth + wtb;
+}
+function kpi(k, v, s){ return '<div class="kpi"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="s">'+s+'</div></div>'; }
+
+/* ---------- 匯出 ---------- */
+function downloadCSV(name, text){
+  var blob = new Blob(["\ufeff"+text], {type:"text/csv;charset=utf-8"});
+  var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+}
+function exportWeekly(){
+  var rows = allRecords.slice().sort(function(a,b){ return a.date<b.date?-1:1; });
+  var csv = "Store,Date,Weekday,Cash,Credit,Other\n" + rows.map(function(r){
+    return [r.store||"", r.date, r.weekday||"", r.cashSales, r.cardSales, r.takeout].join(",");
+  }).join("\n");
+  downloadCSV("hoja_closing_weekly_export.csv", csv);
+}
+function exportFull(){
+  var rows = allRecords.slice().sort(function(a,b){ return a.date<b.date?-1:1; });
+  var openMap = {};
+  allOpenings.forEach(function(o){ openMap[o.date] = o; });
+  var cols = ["store","date","weekday","server","openCash","openCounter","tillTotal","openDiff","actualCash","envelope","cashSales","cashTips","cardTips","totalTips","netSales","takeout","dineIn","cardSales","tipsPct","nextDayCount","nextDayServer"];
+  var csv = cols.join(",") + "\n" + rows.map(function(r){
+    var o = openMap[r.date] || {};
+    var merged = Object.assign({}, r, { openCash: (o.total!==undefined? o.total : ""), openCounter: (o.counter||"") });
+    return cols.map(function(c){ var v = merged[c]; return v===null||v===undefined ? "" : v; }).join(",");
+  }).join("\n");
+  downloadCSV("hoja_closing_full.csv", csv);
+}
+
+/* ---------- 設定 ---------- */
+function updateStoreLabel(){
+  var el = $("store-label"); if (el) el.textContent = cfg.store || "一店";
+}
+function saveSetup(){
+  cfg.store = $("s-store").value;
+  cfg.endpoint = $("s-endpoint").value.trim();
+  cfg.pin = $("s-pin").value.trim() || "1234";
+  saveCfg();
+  updateStoreLabel();
+  var f = $("setup-flag"); f.className = "flag ok";
+  f.textContent = cfg.endpoint ? "✓ 已儲存，送出時會同步到試算表。" : "✓ 已儲存（本機模式）。";
+  updateSyncNote();
+}
+function updateSyncNote(){
+  var t = cfg.endpoint ? "☁️ 已連接試算表同步" : "目前為本機模式：資料只存在這台裝置（到「設定」貼上同步網址即可連雲端）";
+  $("sync-note").textContent = t;
+  $("opening-note").textContent = t;
+}
+function refreshLocalCount(){
+  $("local-count").textContent = "本機已存 " + loadLocal().length + " 天的結帳資料。";
+}
+
+/* ---------- 初始化 ---------- */
+buildDenoms();
+$("f-date").value = todayStr();
+["f-opendiff","f-c1","f-c2","f-c3","f-cashsales","f-cardtips","f-netsales","f-takeout","f-cardsales"].forEach(function(id){
+  $(id).addEventListener("input", recalc);
+});
+$("f-date").addEventListener("change", function(){ applyOpeningForDate(); });
+buildOpenDenoms();
+$("o-date").value = todayStr();
+openCalc();
+recalc(); updateSyncNote(); refreshLocalCount(); refreshOpenings(); updateStoreLabel();
+</script>
+</body>
+</html>
