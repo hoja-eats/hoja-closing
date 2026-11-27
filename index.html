@@ -284,8 +284,7 @@
     </div>
     <div id="setup-main">
     <div class="card">
-      <h2 data-i18n="syncTitle">☁️ 資料同步（Google 試算表後台）</h2>
-      <div class="hint" data-i18n="syncHint">三家店共用同一本中央資料庫，資料以店別區分。貼上 Apps Script 網頁應用程式網址後，員工送出的資料會即時寫入 Google 試算表，後台也會讀取雲端全部資料。未設定時，資料只存在這支手機／這個瀏覽器（本機模式）。</div>
+      <h2 data-i18n="setupTitle">⚙️ 設定</h2>
       <label class="lbl" data-i18n="lblStore">本店店別（每台平板設定一次）</label>
       <select id="s-store">
         <option value="一店" data-i18n="optStore1">一店（FMP · Markham）</option>
@@ -297,8 +296,6 @@
         <option value="zh">繁體中文</option>
         <option value="en">English</option>
       </select>
-      <label class="lbl" data-i18n="lblEndpoint">Apps Script Web App 網址</label>
-      <input type="text" id="s-endpoint" placeholder="https://script.google.com/macros/s/…/exec">
       <label class="lbl" data-i18n="lblPin">管理密碼（留空＝不更改）</label>
       <input type="password" id="s-pin" placeholder="••••">
       <div class="hint" data-i18n="pinHiddenHint">目前的密碼不會顯示出來；只有要改密碼時才需要填新密碼，留空就保持不變。</div>
@@ -433,6 +430,8 @@ var I18N = {
   setupLockHint:{zh:"設定頁需要管理密碼才能開啟（與後台登入同一個密碼）。",en:"The Settings page is protected. Enter the manager password (the same one as the dashboard) to open it."},
   btnUnlock:{zh:"解鎖設定",en:"Unlock Settings"},
   pinHiddenHint:{zh:"目前的密碼不會顯示出來；只有要改密碼時才需要填新密碼，留空就保持不變。",en:"The current password is never shown. Only fill this in if you want to change it — leave it blank to keep the current password."},
+  adminPinMismatch:{zh:"⚠️ 這台裝置的密碼與雲端不一致，目前只顯示這台平板的本機紀錄。請到「設定」確認密碼是總公司給的那一組。",en:"⚠️ This device's password doesn't match the server — showing this tablet's local records only. Please check the password in Settings against the one from head office."},
+  setupTitle:{zh:"⚙️ 設定",en:"⚙️ Settings"},
   btnSave:{zh:"儲存設定",en:"Save Settings"},
   infoTitle:{zh:"ℹ️ 說明",en:"ℹ️ About"},
   infoP1:{zh:"計算方式與現行各店業績結帳表完全相同：Cash Tips ＝ 實際總現金 − 留底 $250 − 現金營業額；Envelope Cash ＝ 收銀現金 − $250；Tips % ＝ Total Tips ÷ 內用淨營業額。同一店同一天重複送出會以最新一筆為準。",en:"Calculations match the stores' existing closing sheets: Cash Tips = Actual Cash − $250 float − Cash Sales; Envelope Cash = Till Cash − $250; Tips % = Total Tips ÷ Dine-In Net Sales. Submitting again for the same store and day overwrites the previous entry."},
@@ -840,9 +839,9 @@ function refreshOpenings(){
   if (cfg.endpoint){
     fetch(cfg.endpoint).then(function(r){ return r.json(); }).then(function(j){
       if (j && j.openings) allOpenings = j.openings;
-      if (j && j.records) allRecords = j.records;
+      if (j && j.records) allRecords = j.records; else allRecords = loadLocal();
       loadEntryForDate();
-    }).catch(function(){ allOpenings = loadOpenings(); loadEntryForDate(); });
+    }).catch(function(){ allOpenings = loadOpenings(); allRecords = loadLocal(); loadEntryForDate(); });
   } else {
     allOpenings = loadOpenings();
     loadEntryForDate();
@@ -867,7 +866,7 @@ function showView(v){
       $("setup-pin-input").value = "";
       var lf = $("setup-lock-flag"); lf.className = "flag"; lf.textContent = "";
     } else {
-      $("s-store").value = cfg.store || "一店"; $("s-endpoint").value = cfg.endpoint; $("s-pin").value = "";
+      $("s-store").value = cfg.store || "一店"; $("s-pin").value = "";
       var sl = $("s-lang"); if (sl) sl.value = cfg.lang || "zh"; refreshLocalCount();
     }
   }
@@ -897,11 +896,16 @@ function setRange(d){
 function loadAdmin(){
   $("admin-note").textContent = t("adminLoading");
   if (cfg.endpoint){
-    fetch(cfg.endpoint).then(function(r){ return r.json(); }).then(function(j){
-      allRecords = (j && j.records) ? j.records : [];
-      allOpenings = (j && j.openings) ? j.openings : [];
-      renderAdmin();
-      $("admin-note").textContent = t("adminSrcCloud", { store: storeName(cfg.store), n: allRecords.filter(ownStore).length });
+    fetch(cfg.endpoint + "?pin=" + encodeURIComponent(cfg.pin)).then(function(r){ return r.json(); }).then(function(j){
+      if (j && j.records){
+        allRecords = j.records;
+        allOpenings = j.openings ? j.openings : [];
+        renderAdmin();
+        $("admin-note").textContent = t("adminSrcCloud", { store: storeName(cfg.store), n: allRecords.filter(ownStore).length });
+      } else {
+        allRecords = loadLocal(); allOpenings = (j && j.openings) ? j.openings : loadOpenings(); renderAdmin();
+        $("admin-note").textContent = t("adminPinMismatch");
+      }
     }).catch(function(){
       allRecords = loadLocal(); allOpenings = loadOpenings(); renderAdmin();
       $("admin-note").textContent = t("adminSrcLocalFail", { n: allRecords.length });
@@ -1001,7 +1005,6 @@ function updateStoreLabel(){
 }
 function saveSetup(){
   cfg.store = $("s-store").value;
-  cfg.endpoint = $("s-endpoint").value.trim();
   var newPin = $("s-pin").value.trim();
   if (newPin) cfg.pin = newPin;
   $("s-pin").value = "";
