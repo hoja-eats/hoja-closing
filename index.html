@@ -36,6 +36,7 @@
   .card h2{margin:0 0 4px; font-size:16.5px; color:var(--red-dark); display:flex; align-items:center; gap:8px;}
   .card h2 .en{font-size:12px; color:var(--muted); font-weight:500;}
   .hint{font-size:12.5px; color:var(--muted); margin:2px 0 8px;}
+  .bignum{font-size:36px; font-weight:800; color:var(--red); line-height:1.2; margin:2px 0 6px;}
   label.lbl{display:block; font-size:13.5px; color:var(--muted); margin:10px 0 4px;}
   input[type="number"], input[type="text"], input[type="date"], input[type="password"], select{
     width:100%; padding:11px 12px; border:1.5px solid var(--line); border-radius:10px; font-size:16.5px;
@@ -210,6 +211,16 @@
       <div class="flag" id="flag-box"></div>
     </div>
 
+    <div class="card">
+      <h2>📌 今日摘要 <span class="en">Summary</span></h2>
+      <div class="lbl" style="margin-top:2px">Envelope Cash（放進信封、要存入的錢）</div>
+      <div class="bignum" id="s-envelope">$0.00</div>
+      <div class="rowline"><span class="k">Closing Till <small>收銀機留底</small></span><span class="v" id="s-closing">$250.00</span></div>
+      <div class="rowline"><span class="k">Cash Tips <small>現金小費</small></span><span class="v" id="s-cashtips">$0.00</span></div>
+      <div class="rowline total"><span class="k">Total Tips <small>小費合計</small></span><span class="v" id="s-totalips">$0.00</span></div>
+      <div class="hint" id="s-week" style="margin-top:8px"></div>
+    </div>
+
     <button class="btn" id="btn-submit" onclick="submitForm()">送出今日結帳 ✓</button>
     <div class="hint" style="text-align:center" id="sync-note"></div>
   </section>
@@ -374,6 +385,17 @@ function calc(){
   return { counts:counts, till:till, actual:actual, envelope:envelope, closing:closing,
            cashTips:cashTips, totalTips:totalTips, dineIn:dineIn, tipsPct:tipsPct };
 }
+function updateWeekLine(c){
+  var el = $("s-week"); if (!el) return;
+  var ds = $("f-date").value; if (!ds){ el.textContent = ""; return; }
+  var d = new Date(ds+"T12:00:00"); var sun = new Date(d); sun.setDate(d.getDate() - d.getDay());
+  var sat = new Date(sun); sat.setDate(sun.getDate() + 6);
+  var s = isoOf(sun), e = isoOf(sat), others = 0;
+  (allRecords || []).forEach(function(r){
+    if (r.date >= s && r.date <= e && r.date !== ds && ownStore(r)) others += parseFloat(r.envelope) || 0;
+  });
+  el.textContent = "本週累積現金總結算（含今日）：" + money(others + (parseFloat(c.envelope) || 0));
+}
 function recalc(){
   var c = calc();
   $("o-till").textContent = money(c.till);
@@ -384,6 +406,11 @@ function recalc(){
   $("o-totalips").textContent = money(c.totalTips);
   $("o-dinein").textContent = money(c.dineIn);
   $("o-tipspct").textContent = (c.tipsPct*100).toFixed(1)+"%";
+  $("s-envelope").textContent = money(c.envelope);
+  $("s-closing").textContent = money(c.closing);
+  $("s-cashtips").textContent = money(c.cashTips);
+  $("s-totalips").textContent = money(c.totalTips);
+  updateWeekLine(c);
   var f = $("flag-box"); var cls = "", msg = "";
   if (c.cashTips < 0){ cls = "bad"; msg = "⚠️ Cash Tips 是負數：現金比報表現金營業額還少，請檢查點算、請款或差額是否填錯。"; }
   else if (num("f-opendiff") !== 0){ cls = "warn"; msg = "ℹ️ 今天有開早金額差額 "+money(num("f-opendiff"))+"，送出前請再確認一次點算。"; }
