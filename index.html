@@ -275,6 +275,14 @@
 
   <!-- ============ 設定 ============ -->
   <section id="view-setup" class="view">
+    <div class="card" id="setup-lock" style="display:none">
+      <h2 data-i18n="setupLockTitle">🔐 設定已上鎖</h2>
+      <div class="hint" data-i18n="setupLockHint">設定頁需要管理密碼才能開啟（與後台登入同一個密碼）。</div>
+      <div class="pinwrap"><input type="password" id="setup-pin-input" inputmode="numeric" placeholder="••••" style="text-align:center; letter-spacing:6px;"></div>
+      <button class="btn" onclick="trySetupPin()" data-i18n="btnUnlock">解鎖設定</button>
+      <div class="flag" id="setup-lock-flag"></div>
+    </div>
+    <div id="setup-main">
     <div class="card">
       <h2 data-i18n="syncTitle">☁️ 資料同步（Google 試算表後台）</h2>
       <div class="hint" data-i18n="syncHint">三家店共用同一本中央資料庫，資料以店別區分。貼上 Apps Script 網頁應用程式網址後，員工送出的資料會即時寫入 Google 試算表，後台也會讀取雲端全部資料。未設定時，資料只存在這支手機／這個瀏覽器（本機模式）。</div>
@@ -291,8 +299,9 @@
       </select>
       <label class="lbl" data-i18n="lblEndpoint">Apps Script Web App 網址</label>
       <input type="text" id="s-endpoint" placeholder="https://script.google.com/macros/s/…/exec">
-      <label class="lbl" data-i18n="lblPin">管理密碼（後台登入用）</label>
-      <input type="text" id="s-pin" placeholder="1234">
+      <label class="lbl" data-i18n="lblPin">管理密碼（留空＝不更改）</label>
+      <input type="password" id="s-pin" placeholder="••••">
+      <div class="hint" data-i18n="pinHiddenHint">目前的密碼不會顯示出來；只有要改密碼時才需要填新密碼，留空就保持不變。</div>
       <button class="btn" onclick="saveSetup()" data-i18n="btnSave">儲存設定</button>
       <div class="flag" id="setup-flag"></div>
     </div>
@@ -301,6 +310,7 @@
       <p class="muted" style="margin:4px 0" data-i18n="infoP1">計算方式與現行各店業績結帳表完全相同：Cash Tips ＝ 實際總現金 − 留底 $250 − 現金營業額；Envelope Cash ＝ 收銀現金 − $250；Tips % ＝ Total Tips ÷ 內用淨營業額。同一店同一天重複送出會以最新一筆為準。</p>
       <p class="muted" style="margin:4px 0" data-i18n="infoP2">「開店點算」分頁：開店人員早上點算的現金總額會自動帶入同日「收店報表」的開早現金金額，差額（總額 − $250）自動填入開早金額差額欄，收店人員可再手動調整。</p>
       <p class="muted" style="margin:4px 0" id="local-count"></p>
+    </div>
     </div>
   </section>
 
@@ -337,6 +347,7 @@ function storeSet(k, v){
 var cfg = loadCfg();
 var configured = !!storeGet(LS_CFG);
 var adminOK = false;
+var setupUnlocked = false;
 var rangeDays = 7;
 var allRecords = [];
 var allOpenings = [];
@@ -417,7 +428,11 @@ var I18N = {
   optStore3:{zh:"三店（DT · Toronto）",en:"Store 3 (DT · Toronto)"},
   lblLang:{zh:"介面語言 Language",en:"Interface language"},
   lblEndpoint:{zh:"Apps Script Web App 網址",en:"Apps Script Web App URL"},
-  lblPin:{zh:"管理密碼（後台登入用）",en:"Manager password (for dashboard login)"},
+  lblPin:{zh:"管理密碼（留空＝不更改）",en:"Manager password (blank = keep current)"},
+  setupLockTitle:{zh:"🔐 設定已上鎖",en:"🔐 Settings Locked"},
+  setupLockHint:{zh:"設定頁需要管理密碼才能開啟（與後台登入同一個密碼）。",en:"The Settings page is protected. Enter the manager password (the same one as the dashboard) to open it."},
+  btnUnlock:{zh:"解鎖設定",en:"Unlock Settings"},
+  pinHiddenHint:{zh:"目前的密碼不會顯示出來；只有要改密碼時才需要填新密碼，留空就保持不變。",en:"The current password is never shown. Only fill this in if you want to change it — leave it blank to keep the current password."},
   btnSave:{zh:"儲存設定",en:"Save Settings"},
   infoTitle:{zh:"ℹ️ 說明",en:"ℹ️ About"},
   infoP1:{zh:"計算方式與現行各店業績結帳表完全相同：Cash Tips ＝ 實際總現金 − 留底 $250 − 現金營業額；Envelope Cash ＝ 收銀現金 − $250；Tips % ＝ Total Tips ÷ 內用淨營業額。同一店同一天重複送出會以最新一筆為準。",en:"Calculations match the stores' existing closing sheets: Cash Tips = Actual Cash − $250 float − Cash Sales; Envelope Cash = Till Cash − $250; Tips % = Total Tips ÷ Dine-In Net Sales. Submitting again for the same store and day overwrites the previous entry."},
@@ -836,6 +851,7 @@ function refreshOpenings(){
 
 /* ---------- 後台 ---------- */
 function showView(v){
+  if (v !== "setup") setupUnlocked = false;
   ["opening","entry","admin","setup"].forEach(function(x){
     $("view-"+x).classList.toggle("on", x===v);
     $("tab-"+x).classList.toggle("on", x===v);
@@ -843,8 +859,27 @@ function showView(v){
   if (v === "entry"){ loadEntryForDate(); refreshOpenings(); }
   if (v === "opening") loadOpeningForDate();
   if (v === "admin" && adminOK) loadAdmin();
-  if (v === "setup"){ $("s-store").value = cfg.store || "一店"; $("s-endpoint").value = cfg.endpoint; $("s-pin").value = cfg.pin; var sl = $("s-lang"); if (sl) sl.value = cfg.lang || "zh"; refreshLocalCount(); }
+  if (v === "setup"){
+    var locked = configured && !setupUnlocked;
+    $("setup-lock").style.display = locked ? "block" : "none";
+    $("setup-main").style.display = locked ? "none" : "block";
+    if (locked){
+      $("setup-pin-input").value = "";
+      var lf = $("setup-lock-flag"); lf.className = "flag"; lf.textContent = "";
+    } else {
+      $("s-store").value = cfg.store || "一店"; $("s-endpoint").value = cfg.endpoint; $("s-pin").value = "";
+      var sl = $("s-lang"); if (sl) sl.value = cfg.lang || "zh"; refreshLocalCount();
+    }
+  }
   window.scrollTo(0,0);
+}
+function trySetupPin(){
+  if ($("setup-pin-input").value === cfg.pin){
+    setupUnlocked = true;
+    showView("setup");
+  } else {
+    var f = $("setup-lock-flag"); f.className = "flag bad"; f.textContent = t("pinWrong");
+  }
 }
 function tryPin(){
   if ($("pin-input").value === cfg.pin){
@@ -967,7 +1002,9 @@ function updateStoreLabel(){
 function saveSetup(){
   cfg.store = $("s-store").value;
   cfg.endpoint = $("s-endpoint").value.trim();
-  cfg.pin = $("s-pin").value.trim() || "1234";
+  var newPin = $("s-pin").value.trim();
+  if (newPin) cfg.pin = newPin;
+  $("s-pin").value = "";
   var sl = $("s-lang"); if (sl) cfg.lang = sl.value || "zh";
   var firstTime = !configured;
   saveCfg();
