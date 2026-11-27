@@ -323,6 +323,7 @@ function storeSet(k, v){
   _memStore[k] = v;
 }
 var cfg = loadCfg();
+var configured = !!storeGet(LS_CFG);
 var adminOK = false;
 var rangeDays = 7;
 var allRecords = [];
@@ -441,6 +442,7 @@ function upsertLocal(rec){
   saveLocal(rows);
 }
 function submitForm(){
+  if (!configured){ toast("請先到『設定』選擇本店店別", 3200); showView("setup"); return; }
   var rec = collectRecord();
   if (!rec.date){ toast("請先選日期"); return; }
   if (rec.tillTotal <= 0 && rec.netSales <= 0){ toast("還沒有輸入任何金額喔"); return; }
@@ -500,6 +502,7 @@ function openCalc(){
   return t;
 }
 function submitOpening(){
+  if (!configured){ toast("請先到『設定』選擇本店店別", 3200); showView("setup"); return; }
   var total = openCalc();
   var rec = {
     type: "opening",
@@ -760,18 +763,21 @@ function exportFull(){
 
 /* ---------- 設定 ---------- */
 function updateStoreLabel(){
-  var el = $("store-label"); if (el) el.textContent = cfg.store || "一店";
+  var el = $("store-label"); if (el) el.textContent = configured ? (cfg.store || "一店") : "尚未設定";
 }
 function saveSetup(){
   cfg.store = $("s-store").value;
   cfg.endpoint = $("s-endpoint").value.trim();
   cfg.pin = $("s-pin").value.trim() || "1234";
+  var firstTime = !configured;
   saveCfg();
+  configured = true;
   updateStoreLabel();
   refreshOpenings();
   var f = $("setup-flag"); f.className = "flag ok";
   f.textContent = cfg.endpoint ? "✓ 已儲存，送出時會同步到試算表。" : "✓ 已儲存（本機模式）。";
   updateSyncNote();
+  if (firstTime){ showView("entry"); toast("✓ 設定完成，可以開始填報"); }
 }
 function updateSyncNote(){
   var t = cfg.endpoint ? "☁️ 已連接試算表同步" : "目前為本機模式：資料只存在這台裝置（到「設定」貼上同步網址即可連雲端）";
@@ -794,6 +800,11 @@ $("o-date").value = todayStr();
 $("o-date").addEventListener("change", loadOpeningForDate);
 openCalc();
 recalc(); updateSyncNote(); refreshLocalCount(); refreshOpenings(); updateStoreLabel();
+if (!configured){
+  showView("setup");
+  var sf = $("setup-flag"); sf.className = "flag warn";
+  sf.textContent = "👋 第一次使用：請先選擇『本店店別』，按『儲存設定』後就能開始填報。";
+}
 </script>
 </body>
 </html>
