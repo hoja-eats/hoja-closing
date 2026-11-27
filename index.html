@@ -654,6 +654,12 @@ function upsertLocal(rec){
   rows.sort(function(a,b){ return a.date < b.date ? -1 : 1; });
   saveLocal(rows);
 }
+function postToCloud(rec){
+  var payload = Object.assign({}, rec, { pin: cfg.pin });
+  return fetch(cfg.endpoint, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" }, body: JSON.stringify(payload) })
+    .then(function(r){ return r.text(); })
+    .then(function(txt){ try { var j = JSON.parse(txt); return !(j && j.ok === false); } catch(e){ return true; } });
+}
 function submitForm(){
   if (!configured){ toast(t("needSetup"), 3200); showView("setup"); return; }
   var rec = collectRecord();
@@ -665,10 +671,10 @@ function submitForm(){
   snote.style.color = "var(--ok)"; snote.style.fontWeight = "700";
   if (cfg.endpoint){
     var btn = $("btn-submit"); btn.textContent = t("submitting"); btn.disabled = true;
-    fetch(cfg.endpoint, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" }, body: JSON.stringify(rec) })
-      .then(function(r){ return r.text(); })
-      .then(function(){ btn.textContent = t("btnSubmit"); btn.disabled = false;
-        toast(t("submittedToast", { date: rec.date })); })
+    postToCloud(rec)
+      .then(function(ok){ btn.textContent = t("btnSubmit"); btn.disabled = false;
+        if (ok) toast(t("submittedToast", { date: rec.date }));
+        else toast(t("syncFailToast"), 3600); })
       .catch(function(){ btn.textContent = t("btnSubmit"); btn.disabled = false;
         toast(t("syncFailToast"), 3600); });
   } else {
@@ -737,9 +743,11 @@ function submitOpening(){
   onote.style.color = "var(--ok)"; onote.style.fontWeight = "700";
   if (cfg.endpoint){
     var btn = $("btn-opening"); btn.textContent = t("submitting"); btn.disabled = true;
-    fetch(cfg.endpoint, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" }, body: JSON.stringify(rec) })
-      .then(function(){ btn.textContent = t("btnOpening"); btn.disabled = false;
-        toast(t("openingToast", { date: rec.date })); applyOpeningForDate(); })
+    postToCloud(rec)
+      .then(function(ok){ btn.textContent = t("btnOpening"); btn.disabled = false;
+        if (ok) toast(t("openingToast", { date: rec.date }));
+        else toast(t("syncFailToast"), 3600);
+        applyOpeningForDate(); })
       .catch(function(){ btn.textContent = t("btnOpening"); btn.disabled = false;
         toast(t("syncFailToast"), 3600); applyOpeningForDate(); });
   } else {
