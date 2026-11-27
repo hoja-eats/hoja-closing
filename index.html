@@ -668,7 +668,7 @@ function loadAdmin(){
       allRecords = (j && j.records) ? j.records : [];
       allOpenings = (j && j.openings) ? j.openings : [];
       renderAdmin();
-      $("admin-note").textContent = "資料來源：Google 試算表（共 "+allRecords.length+" 天）";
+      $("admin-note").textContent = "資料來源：Google 試算表（本店 "+cfg.store+"，共 "+allRecords.filter(ownStore).length+" 天）";
     }).catch(function(){
       allRecords = loadLocal(); allOpenings = loadOpenings(); renderAdmin();
       $("admin-note").textContent = "雲端讀取失敗，先顯示本機資料（共 "+allRecords.length+" 天）";
@@ -685,8 +685,9 @@ function inRange(rec){
 }
 function isoOf(d){ var m=("0"+(d.getMonth()+1)).slice(-2); var dd=("0"+d.getDate()).slice(-2); return d.getFullYear()+"-"+m+"-"+dd; }
 function sum(rows, k){ return round2(rows.reduce(function(a,r){ return a + (parseFloat(r[k])||0); }, 0)); }
+function ownStore(r){ return !r.store || r.store === cfg.store; }
 function renderAdmin(){
-  var rows = allRecords.filter(inRange).slice().sort(function(a,b){ return a.date<b.date?-1:1; });
+  var rows = allRecords.filter(inRange).filter(ownStore).slice().sort(function(a,b){ return a.date<b.date?-1:1; });
   var net = sum(rows,"netSales"), tips = sum(rows,"totalTips"), cash = sum(rows,"cashSales"),
       card = sum(rows,"cardSales"), cardTips = sum(rows,"cardTips"), env = sum(rows,"envelope");
   var avgPct = rows.length ? rows.reduce(function(a,r){ return a+(parseFloat(r.tipsPct)||0); },0)/rows.length : 0;
@@ -719,7 +720,7 @@ function renderAdmin(){
   $("tbl-days").innerHTML = th + tb;
   // weekly table (Sun-Sat)
   var weeks = {};
-  allRecords.forEach(function(r){
+  allRecords.filter(ownStore).forEach(function(r){
     var d = new Date(r.date+"T12:00:00"); d.setDate(d.getDate() - d.getDay());
     var key = (r.store||"") + "|" + isoOf(d);
     if (!weeks[key]) weeks[key] = { store: r.store||"", week: isoOf(d), rows: [] };
@@ -742,14 +743,14 @@ function downloadCSV(name, text){
   setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
 }
 function exportWeekly(){
-  var rows = allRecords.slice().sort(function(a,b){ return a.date<b.date?-1:1; });
+  var rows = allRecords.filter(ownStore).slice().sort(function(a,b){ return a.date<b.date?-1:1; });
   var csv = "Store,Date,Weekday,Cash,Credit,Other\n" + rows.map(function(r){
     return [r.store||"", r.date, r.weekday||"", r.cashSales, r.cardSales, r.takeout].join(",");
   }).join("\n");
   downloadCSV("hoja_closing_weekly_export.csv", csv);
 }
 function exportFull(){
-  var rows = allRecords.slice().sort(function(a,b){ return a.date<b.date?-1:1; });
+  var rows = allRecords.filter(ownStore).slice().sort(function(a,b){ return a.date<b.date?-1:1; });
   var openMap = {};
   allOpenings.forEach(function(o){ openMap[(o.store||"") + "|" + o.date] = o; });
   var cols = ["store","date","weekday","server","openCash","openCounter","tillTotal","openDiff","actualCash","envelope","cashSales","cashTips","cardTips","totalTips","netSales","takeout","dineIn","cardSales","tipsPct","nextDayCount","nextDayServer"];
