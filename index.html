@@ -108,7 +108,7 @@
     #view-opening.on, #view-entry.on{display:grid; grid-template-columns:1fr 1fr; column-gap:16px; align-items:start;}
     #view-opening .btn, #view-entry .btn{grid-column:1 / -1;}
     #opening-note, #sync-note{grid-column:1 / -1;}
-    /* 收店報表：左欄＝日期＋現金點算；右欄＝對帳＋POS＋次日確認 */
+    /* 收店報表：左欄＝日期＋現金點算；右欄＝對帳＋POS */
     #view-entry .card:nth-of-type(1){grid-column:1; grid-row:1;}
     #view-entry .card:nth-of-type(2){grid-column:1; grid-row:2;}
     #view-entry .card:nth-of-type(3){grid-column:2; grid-row:1;}
@@ -208,15 +208,6 @@
         <div class="rowline"><span class="k">Tips % <small>小費佔內用營業額</small></span><span class="v" id="o-tipspct">0.0%</span></div>
       </div>
       <div class="flag" id="flag-box"></div>
-    </div>
-
-    <div class="card">
-      <h2>🌅 次日確認 <span class="en">Next Day Confirmation（隔天早上填）</span></h2>
-      <div class="grid2" style="align-items:end">
-        <div><label class="lbl">次日早上點算金額 Cash Count</label><div class="money"><input type="number" step="0.01" inputmode="decimal" id="f-nextcount" placeholder="250.00"></div></div>
-        <div><label class="lbl">確認人 Server Name</label><input type="text" id="f-nextserver" placeholder="姓名"></div>
-      </div>
-      <div class="hint">沒填也可以先送出；隔天開啟本頁、選昨天的日期，當天紀錄會自動帶入，補填後再送出即可。</div>
     </div>
 
     <button class="btn" id="btn-submit" onclick="submitForm()">送出今日結帳 ✓</button>
@@ -427,8 +418,7 @@ function collectRecord(){
     dineIn: c.dineIn,
     cardSales: num("f-cardsales"),
     tipsPct: Math.round(c.tipsPct*10000)/10000,
-    nextDayCount: $("f-nextcount").value === "" ? null : num("f-nextcount"),
-    nextDayServer: $("f-nextserver").value.trim(),
+
     submittedAt: new Date().toISOString()
   };
   return rec;
@@ -569,14 +559,13 @@ function fillEntryForm(rec){
   setVal("f-netsales", rec.netSales || "");
   setVal("f-takeout", rec.takeout || "");
   setVal("f-cardsales", rec.cardSales || "");
-  setVal("f-nextcount", (rec.nextDayCount === null || rec.nextDayCount === undefined) ? "" : rec.nextDayCount);
-  setVal("f-nextserver", rec.nextDayServer || "");
+
 }
 function clearEntryForm(){
   setVal("f-server", "");
   DENOMS.forEach(function(d, i){ setVal("dn-"+i, ""); });
-  ["f-opendiff","f-c1","f-c2","f-c3","f-cashsales","f-cardtips","f-netsales","f-takeout","f-cardsales","f-nextcount"].forEach(function(id){ setVal(id, ""); });
-  ["f-c1n","f-c2n","f-c3n","f-nextserver"].forEach(function(id){ setVal(id, ""); });
+  ["f-opendiff","f-c1","f-c2","f-c3","f-cashsales","f-cardtips","f-netsales","f-takeout","f-cardsales"].forEach(function(id){ setVal(id, ""); });
+  ["f-c1n","f-c2n","f-c3n"].forEach(function(id){ setVal(id, ""); });
 }
 function loadEntryForDate(){
   var date = $("f-date").value;
@@ -753,7 +742,7 @@ function exportFull(){
   var rows = allRecords.filter(ownStore).slice().sort(function(a,b){ return a.date<b.date?-1:1; });
   var openMap = {};
   allOpenings.forEach(function(o){ openMap[(o.store||"") + "|" + o.date] = o; });
-  var cols = ["store","date","weekday","server","openCash","openCounter","tillTotal","openDiff","actualCash","envelope","cashSales","cashTips","cardTips","totalTips","netSales","takeout","dineIn","cardSales","tipsPct","nextDayCount","nextDayServer"];
+  var cols = ["store","date","weekday","server","openCash","openCounter","tillTotal","openDiff","actualCash","envelope","cashSales","cashTips","cardTips","totalTips","netSales","takeout","dineIn","cardSales","tipsPct"];
   var csv = cols.join(",") + "\n" + rows.map(function(r){
     var o = openMap[(r.store||"") + "|" + r.date] || {};
     var merged = Object.assign({}, r, { openCash: (o.total!==undefined? o.total : ""), openCounter: (o.counter||"") });
