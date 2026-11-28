@@ -196,6 +196,15 @@
     </div>
 
     <div class="card">
+      <h2><span data-i18n="floatTitle">🧮 留底 $250 點算</span> <span class="en">Float Count</span></h2>
+      <div class="hint" data-i18n="floatHint">把要留在錢箱裡的零錢逐面額輸入，合計應為 $250；不等也沒關係，照實輸入、不要湊數。</div>
+      <div id="fdenoms"></div>
+      <div class="rowline total"><span class="k"><span data-i18n="floatTotalLbl">留底合計</span> <small>Float Total</small></span><span class="v" id="o-float">$0.00</span></div>
+      <div class="rowline"><span class="k"><span data-i18n="floatTargetLbl">目標留底</span> <small>Target</small></span><span class="v">$250.00</span></div>
+      <div class="flag" id="float-flag"></div>
+    </div>
+
+    <div class="card">
       <h2 data-i18n="posTitle">📟 POS 數據與小費點算</h2>
       <label class="lbl" data-i18n="lblCashSales">Report Cash Sales（POS 報表現金營業額）</label>
       <div class="money"><input type="number" step="0.01" inputmode="decimal" id="f-cashsales" placeholder="0.00"></div>
@@ -221,6 +230,7 @@
       <div class="lbl" style="margin-top:2px" data-i18n="sumEnvLbl">Envelope Cash（放進信封、要存入的錢）</div>
       <div class="bignum" id="s-envelope">$0.00</div>
       <div class="rowline"><span class="k"><span data-i18n="closingLbl">Closing Till</span> <small>收銀機留底</small></span><span class="v" id="s-closing">$250.00</span></div>
+      <div class="rowline"><span class="k"><span data-i18n="floatTotalLbl">留底點算</span> <small>Float Count</small></span><span class="v" id="s-float">—</span></div>
       <div class="rowline"><span class="k"><span data-i18n="cashTipsLbl">Cash Tips</span> <small>現金小費</small></span><span class="v" id="s-cashtips">$0.00</span></div>
       <div class="rowline total"><span class="k"><span data-i18n="totalTipsLbl">Total Tips</span> <small>小費合計</small></span><span class="v" id="s-totalips">$0.00</span></div>
       <div class="hint" id="s-week" style="margin-top:8px"></div>
@@ -456,6 +466,13 @@ var I18N = {
   weekdayLine:{zh:"星期：{wd}（小費週期以週日–週六計算）",en:"Day: {wd} (tips week runs Sunday–Saturday)"},
   flagDiff:{zh:"ℹ️ 今天有開早金額差額 {amt}，送出前請再確認一次點算。",en:"ℹ️ There is an opening difference of {amt} today — please double-check the count before submitting."},
   weekLine:{zh:"本週累積現金總結算（含今日）：{amt}",en:"This week's cash settlement so far (incl. today): {amt}"},
+  floatTitle:{zh:"🧮 留底 $250 點算",en:"🧮 Float Count $250"},
+  floatHint:{zh:"把要留在錢箱裡的零錢逐面額輸入，合計應為 $250；不等也沒關係，照實輸入、不要湊數。",en:"Count the cash staying in the till by denomination — it should total $250. If it doesn't, enter the real count; don't force it."},
+  floatTotalLbl:{zh:"留底合計",en:"Float Total"},
+  floatTargetLbl:{zh:"目標留底",en:"Target"},
+  floatOk:{zh:"✓ 留底剛好 $250",en:"✓ Float is exactly $250"},
+  floatShort:{zh:"留底還差 {amt}",en:"Float is {amt} short"},
+  floatOver:{zh:"留底多出 {amt}",en:"Float is {amt} over"},
   submittedNote:{zh:"✓ 已送出 {date} 的收店報表（袋中現金 {env}、Total Tips {tips}）。",en:"✓ Closing report for {date} submitted (Envelope Cash {env}, Total Tips {tips})."},
   submittedToast:{zh:"✓ 已送出並同步到試算表（{date}）",en:"✓ Submitted & synced to Sheets ({date})"},
   submitLocalToast:{zh:"✓ 已儲存（本機模式，{date}）",en:"✓ Saved on this device ({date})"},
@@ -564,6 +581,16 @@ function buildDenoms(){
   });
   $("denoms").innerHTML = html;
 }
+function buildFloatDenoms(){
+  var html = "";
+  DENOMS.forEach(function(d, i){
+    var label = d >= 1 ? "$"+d : (d*100)+"¢";
+    html += '<div class="denom"><span class="face">'+label+'</span>' +
+      '<input type="number" min="0" step="1" inputmode="numeric" id="fd-'+i+'" placeholder="0" oninput="recalc()">' +
+      '<span class="amt" id="fa-'+i+'">$0.00</span></div>';
+  });
+  $("fdenoms").innerHTML = html;
+}
 function countsObj(){
   var o = {}; DENOMS.forEach(function(d, i){ o[d] = num("dn-"+i); }); return o;
 }
@@ -571,6 +598,9 @@ function calc(){
   var counts = countsObj(); var till = 0;
   DENOMS.forEach(function(d, i){ till += d * counts[d]; $("da-"+i).textContent = money(d*counts[d]); });
   till = round2(till);
+  var fcounts = {}; var ftotal = 0;
+  DENOMS.forEach(function(d, i){ var c = num("fd-"+i); fcounts[d] = c; ftotal += d * c; var fa = $("fa-"+i); if (fa) fa.textContent = money(d*c); });
+  ftotal = round2(ftotal);
   var actual = round2(till + num("f-opendiff") + num("f-c1") + num("f-c2") + num("f-c3"));
   var envelope = round2(till - FLOAT_AMT);
   var closing = round2(till - envelope);
@@ -579,7 +609,8 @@ function calc(){
   var dineIn = round2(num("f-netsales") - num("f-takeout"));
   var tipsPct = dineIn > 0 ? totalTips / dineIn : 0;
   return { counts:counts, till:till, actual:actual, envelope:envelope, closing:closing,
-           cashTips:cashTips, totalTips:totalTips, dineIn:dineIn, tipsPct:tipsPct };
+           cashTips:cashTips, totalTips:totalTips, dineIn:dineIn, tipsPct:tipsPct,
+           floatCounts:fcounts, floatTotal:ftotal };
 }
 function updateWeekLine(c){
   var el = $("s-week"); if (!el) return;
@@ -606,6 +637,14 @@ function recalc(){
   $("s-closing").textContent = money(c.closing);
   $("s-cashtips").textContent = money(c.cashTips);
   $("s-totalips").textContent = money(c.totalTips);
+  $("o-float").textContent = money(c.floatTotal);
+  var fdiff = round2(c.floatTotal - FLOAT_AMT);
+  $("s-float").textContent = c.floatTotal === 0 ? "—" : money(c.floatTotal) + (fdiff === 0 ? " ✓" : " (" + (fdiff > 0 ? "+" : "−") + money(Math.abs(fdiff)) + ")");
+  var ff = $("float-flag");
+  if (c.floatTotal === 0){ ff.className = "flag"; ff.textContent = ""; }
+  else if (fdiff === 0){ ff.className = "flag ok"; ff.textContent = t("floatOk"); }
+  else if (fdiff < 0){ ff.className = "flag warn"; ff.textContent = t("floatShort", { amt: money(-fdiff) }); }
+  else { ff.className = "flag warn"; ff.textContent = t("floatOver", { amt: money(fdiff) }); }
   updateWeekLine(c);
   var f = $("flag-box"); var cls = "", msg = "";
   if (c.cashTips < 0){ cls = "bad"; msg = t("flagNeg"); }
@@ -641,6 +680,8 @@ function collectRecord(){
     dineIn: c.dineIn,
     cardSales: num("f-cardsales"),
     tipsPct: Math.round(c.tipsPct*10000)/10000,
+    floatCounts: c.floatCounts,
+    floatTotal: c.floatTotal,
 
     submittedAt: new Date().toISOString()
   };
@@ -779,6 +820,7 @@ function setVal(id, v){ $(id).value = (v === null || v === undefined) ? "" : v; 
 function fillEntryForm(rec){
   setVal("f-server", rec.server || "");
   DENOMS.forEach(function(d, i){ setVal("dn-"+i, rec.counts ? (rec.counts[d] || "") : ""); });
+  DENOMS.forEach(function(d, i){ setVal("fd-"+i, rec.floatCounts ? (rec.floatCounts[d] || "") : ""); });
   setVal("f-opendiff", rec.openDiff || "");
   var cl = rec.claims || [];
   for (var k = 0; k < 3; k++){
@@ -795,6 +837,7 @@ function fillEntryForm(rec){
 function clearEntryForm(){
   setVal("f-server", "");
   DENOMS.forEach(function(d, i){ setVal("dn-"+i, ""); });
+  DENOMS.forEach(function(d, i){ setVal("fd-"+i, ""); });
   ["f-opendiff","f-c1","f-c2","f-c3","f-cashsales","f-cardtips","f-netsales","f-takeout","f-cardsales"].forEach(function(id){ setVal(id, ""); });
   ["f-c1n","f-c2n","f-c3n"].forEach(function(id){ setVal(id, ""); });
 }
@@ -954,13 +997,15 @@ function renderAdmin(){
   // daily table
   var openMap = {};
   allOpenings.forEach(function(o){ openMap[(o.store||"") + "|" + o.date] = o; });
-  var th = "<tr><th>"+t("thStore")+"</th><th>"+t("thDate")+"</th><th>"+t("thOpenCash")+"</th><th>"+t("thNet")+"</th><th>"+t("thCash")+"</th><th>"+t("thCard")+"</th><th>"+t("thTakeout")+"</th><th>Cash Tips</th><th>Card Tips</th><th>Tips%</th><th>"+t("thDiff")+"</th><th>"+t("thEnv")+"</th><th>"+t("thServer")+"</th></tr>";
+  var th = "<tr><th>"+t("thStore")+"</th><th>"+t("thDate")+"</th><th>"+t("thOpenCash")+"</th><th>"+t("thNet")+"</th><th>"+t("thCash")+"</th><th>"+t("thCard")+"</th><th>"+t("thTakeout")+"</th><th>Cash Tips</th><th>Card Tips</th><th>Tips%</th><th>"+t("thDiff")+"</th><th>"+t("floatTotalLbl")+"</th><th>"+t("thEnv")+"</th><th>"+t("thServer")+"</th></tr>";
   var tb = rows.slice().reverse().map(function(r){
     var o = openMap[(r.store||"") + "|" + r.date];
     var oc = "—";
     if (o){ var ot = parseFloat(o.total)||0;
       oc = Math.abs(ot - FLOAT_AMT) > 0.001 ? '<span style="color:var(--bad);font-weight:700">'+money(ot)+"</span>" : money(ot); }
-    return "<tr><td>"+storeName(r.store||"")+"</td><td>"+r.date.slice(5)+" "+(r.weekday||"")+"</td><td>"+oc+"</td><td>"+money(r.netSales)+"</td><td>"+money(r.cashSales)+"</td><td>"+money(r.cardSales)+"</td><td>"+money(r.takeout)+"</td><td>"+money(r.cashTips)+"</td><td>"+money(r.cardTips)+"</td><td>"+((parseFloat(r.tipsPct)||0)*100).toFixed(1)+"%</td><td>"+((parseFloat(r.openDiff)||0)!==0 ? money(r.openDiff) : "—")+"</td><td>"+money(r.envelope)+"</td><td>"+(r.server||"")+"</td></tr>";
+    var ft = (r.floatTotal === undefined || r.floatTotal === null || r.floatTotal === "") ? "—" :
+      (Math.abs((parseFloat(r.floatTotal)||0) - FLOAT_AMT) > 0.001 ? '<span style="color:var(--bad);font-weight:700">'+money(r.floatTotal)+"</span>" : money(r.floatTotal));
+    return "<tr><td>"+storeName(r.store||"")+"</td><td>"+r.date.slice(5)+" "+(r.weekday||"")+"</td><td>"+oc+"</td><td>"+money(r.netSales)+"</td><td>"+money(r.cashSales)+"</td><td>"+money(r.cardSales)+"</td><td>"+money(r.takeout)+"</td><td>"+money(r.cashTips)+"</td><td>"+money(r.cardTips)+"</td><td>"+((parseFloat(r.tipsPct)||0)*100).toFixed(1)+"%</td><td>"+((parseFloat(r.openDiff)||0)!==0 ? money(r.openDiff) : "—")+"</td><td>"+ft+"</td><td>"+money(r.envelope)+"</td><td>"+(r.server||"")+"</td></tr>";
   }).join("");
   $("tbl-days").innerHTML = th + tb;
   // weekly table (Sun-Sat)
@@ -1038,6 +1083,7 @@ function refreshLocalCount(){
 
 /* ---------- 初始化 ---------- */
 buildDenoms();
+buildFloatDenoms();
 $("f-date").value = todayStr();
 ["f-opendiff","f-c1","f-c2","f-c3","f-cashsales","f-cardtips","f-netsales","f-takeout","f-cardsales"].forEach(function(id){
   $(id).addEventListener("input", recalc);
