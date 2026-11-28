@@ -681,7 +681,7 @@ function collectRecord(){
     cardSales: num("f-cardsales"),
     tipsPct: Math.round(c.tipsPct*10000)/10000,
     floatCounts: c.floatCounts,
-    floatTotal: c.floatTotal,
+    floatTotal: c.floatTotal > 0 ? c.floatTotal : null,
 
     submittedAt: new Date().toISOString()
   };
@@ -1003,8 +1003,9 @@ function renderAdmin(){
     var oc = "—";
     if (o){ var ot = parseFloat(o.total)||0;
       oc = Math.abs(ot - FLOAT_AMT) > 0.001 ? '<span style="color:var(--bad);font-weight:700">'+money(ot)+"</span>" : money(ot); }
-    var ft = (r.floatTotal === undefined || r.floatTotal === null || r.floatTotal === "") ? "—" :
-      (Math.abs((parseFloat(r.floatTotal)||0) - FLOAT_AMT) > 0.001 ? '<span style="color:var(--bad);font-weight:700">'+money(r.floatTotal)+"</span>" : money(r.floatTotal));
+    var ftN = parseFloat(r.floatTotal);
+    var ft = (r.floatTotal === undefined || r.floatTotal === null || r.floatTotal === "" || !ftN) ? "—" :
+      (Math.abs(ftN - FLOAT_AMT) > 0.001 ? '<span style="color:var(--bad);font-weight:700">'+money(ftN)+"</span>" : money(ftN));
     return "<tr><td>"+storeName(r.store||"")+"</td><td>"+r.date.slice(5)+" "+(r.weekday||"")+"</td><td>"+oc+"</td><td>"+money(r.netSales)+"</td><td>"+money(r.cashSales)+"</td><td>"+money(r.cardSales)+"</td><td>"+money(r.takeout)+"</td><td>"+money(r.cashTips)+"</td><td>"+money(r.cardTips)+"</td><td>"+((parseFloat(r.tipsPct)||0)*100).toFixed(1)+"%</td><td>"+((parseFloat(r.openDiff)||0)!==0 ? money(r.openDiff) : "—")+"</td><td>"+ft+"</td><td>"+money(r.envelope)+"</td><td>"+(r.server||"")+"</td></tr>";
   }).join("");
   $("tbl-days").innerHTML = th + tb;
