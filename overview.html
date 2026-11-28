@@ -57,6 +57,7 @@ th:nth-child(2),td:nth-child(2){text-align:left}
     </div>
     <div style="height:10px"></div>
     <div class="row" id="range-filter">
+      <button data-range="today">今日</button>
       <button data-range="7" class="on">本週</button>
       <button data-range="prev7">上週</button>
       <button data-range="7d">近 7 天</button>
@@ -112,6 +113,14 @@ function weekStartOf(dateStr){
   d.setDate(d.getDate() - d.getDay());
   return isoOf(d);
 }
+/* 「今日」以多倫多（店的營業日）日期為準，避免台灣時差看到錯天 */
+function torontoToday(){
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  } catch(e){
+    return isoOf(new Date());
+  }
+}
 function jsonpGet(url){
   return new Promise(function(resolve, reject){
     var name = "hoja_cb_" + Date.now() + "_" + Math.floor(Math.random()*1000000);
@@ -151,6 +160,9 @@ function loadData(){
 }
 function inRange(rec){
   var today = new Date();
+  if (rangeMode === "today"){
+    return rec.date === torontoToday();
+  }
   if (rangeMode === "7"){
     var start = new Date(today); start.setDate(today.getDate() - today.getDay());
     return rec.date >= isoOf(start);
