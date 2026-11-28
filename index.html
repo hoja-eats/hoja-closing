@@ -701,6 +701,33 @@ function postToCloud(rec){
     .then(function(r){ return r.text(); })
     .then(function(txt){ try { var j = JSON.parse(txt); return !(j && j.ok === false); } catch(e){ return true; } });
 }
+/* JSONP 讀取：Safari 會擋下 fetch 到 Apps Script 的轉址（Load failed），改用 script tag 讀取；
+   雲端 doGet 需支援 callback 參數（v3.5 起）。 */
+function jsonpGet(url){
+  return new Promise(function(resolve, reject){
+    var name = "hoja_cb_" + Date.now() + "_" + Math.floor(Math.random()*1000000);
+    var s = document.createElement("script");
+    var timer = setTimeout(function(){ cleanup(); reject(new Error("timeout")); }, 25000);
+    function cleanup(){
+      clearTimeout(timer);
+      try { delete window[name]; } catch(e){ window[name] = undefined; }
+      if (s.parentNode) s.parentNode.removeChild(s);
+    }
+    window[name] = function(data){ cleanup(); resolve(data); };
+    s.onerror = function(){ cleanup(); reject(new Error("load failed")); };
+    s.src = url + (url.indexOf("?") >= 0 ? "&" : "?") + "callback=" + name;
+    (document.head || document.documentElement).appendChild(s);
+  });
+}
+/* POST 的 fetch 若被 Safari 擋下，資料可能其實已寫入：用 JSONP 讀回比對 submittedAt 確認。 */
+function verifyPosted(rec){
+  var url = cfg.endpoint + (rec.type === "opening" ? "" : "?pin=" + encodeURIComponent(cfg.pin));
+  return jsonpGet(url).then(function(j){
+    var pool = rec.type === "opening" ? (j && j.openings) : (j && j.records);
+    if (!pool) return false;
+    return pool.some(function(r){ return r.store === rec.store && r.date === rec.date && String(r.submittedAt) === String(rec.submittedAt); });
+  }).catch(function(){ return false; });
+}
 function submitForm(){
   if (!configured){ toast(t("needSetup"), 3200); showView("setup"); return; }
   var rec = collectRecord();
@@ -712,12 +739,14 @@ function submitForm(){
   snote.style.color = "var(--ok)"; snote.style.fontWeight = "700";
   if (cfg.endpoint){
     var btn = $("btn-submit"); btn.textContent = t("submitting"); btn.disabled = true;
+    var done = function(ok){
+      btn.textContent = t("btnSubmit"); btn.disabled = false;
+      if (ok) toast(t("submittedToast", { date: rec.date }));
+      else toast(t("syncFailToast"), 3600);
+    };
     postToCloud(rec)
-      .then(function(ok){ btn.textContent = t("btnSubmit"); btn.disabled = false;
-        if (ok) toast(t("submittedToast", { date: rec.date }));
-        else toast(t("syncFailToast"), 3600); })
-      .catch(function(){ btn.textContent = t("btnSubmit"); btn.disabled = false;
-        toast(t("syncFailToast"), 3600); });
+      .then(function(ok){ done(ok); })
+      .catch(function(){ verifyPosted(rec).then(function(found){ done(found); }); });
   } else {
     toast(t("submitLocalToast", { date: rec.date }));
   }
@@ -784,13 +813,15 @@ function submitOpening(){
   onote.style.color = "var(--ok)"; onote.style.fontWeight = "700";
   if (cfg.endpoint){
     var btn = $("btn-opening"); btn.textContent = t("submitting"); btn.disabled = true;
+    var doneO = function(ok){
+      btn.textContent = t("btnOpening"); btn.disabled = false;
+      if (ok) toast(t("openingToast", { date: rec.date }));
+      else toast(t("syncFailToast"), 3600);
+      applyOpeningForDate();
+    };
     postToCloud(rec)
-      .then(function(ok){ btn.textContent = t("btnOpening"); btn.disabled = false;
-        if (ok) toast(t("openingToast", { date: rec.date }));
-        else toast(t("syncFailToast"), 3600);
-        applyOpeningForDate(); })
-      .catch(function(){ btn.textContent = t("btnOpening"); btn.disabled = false;
-        toast(t("syncFailToast"), 3600); applyOpeningForDate(); });
+      .then(function(ok){ doneO(ok); })
+      .catch(function(){ verifyPosted(rec).then(function(found){ doneO(found); }); });
   } else {
     toast(t("openingLocalToast", { date: rec.date }));
     applyOpeningForDate();
@@ -888,7 +919,7 @@ function applyOpeningForDate(){
 }
 function refreshOpenings(){
   if (cfg.endpoint){
-    fetch(cfg.endpoint).then(function(r){ return r.json(); }).then(function(j){
+    jsonpGet(cfg.endpoint).then(function(j){
       if (j && j.openings) allOpenings = j.openings;
       if (j && j.records) allRecords = j.records; else allRecords = loadLocal();
       loadEntryForDate();
@@ -947,7 +978,7 @@ function setRange(d){
 function loadAdmin(){
   $("admin-note").textContent = t("adminLoading");
   if (cfg.endpoint){
-    fetch(cfg.endpoint + "?pin=" + encodeURIComponent(cfg.pin)).then(function(r){ return r.json(); }).then(function(j){
+    jsonpGet(cfg.endpoint + "?pin=" + encodeURIComponent(cfg.pin)).then(function(j){
       if (j && j.records){
         allRecords = j.records;
         allOpenings = j.openings ? j.openings : [];
